@@ -53,7 +53,10 @@ class BrowserSecurityDeviceTest {
         waitForPage(scenario, offline)
         assertTrue(evaluate(scenario, "window.privateMarker").contains("configured-secret"))
         scenario.onActivity { findWeb(it.window.decorView)!!.loadDataWithBaseURL("https://different.example/", "<html><body>Foreign</body></html>", "text/html", "UTF-8", null) }
-        waitForPage(scenario, "https://different.example/")
+        // loadDataWithBaseURL is not an HTTP navigation; old providers can keep
+        // different native URL/progress values after its document has committed.
+        waitUntil { evaluate(scenario, "document.body && document.body.textContent") == "\"Foreign\"" }
+        assertEquals("\"https://different.example\"", evaluate(scenario, "location.origin"))
         assertEquals("\"undefined\"", evaluate(scenario, "typeof window.privateMarker"))
     }
 
@@ -100,10 +103,15 @@ class BrowserSecurityDeviceTest {
             ActivityScenario.launch<BrowserActivity>(Intent(application, BrowserActivity::class.java).putExtra("app_id", config.id)).use(action)
         } finally { runBlocking { application.repository.delete(config.id) } }
     }
-    private fun waitForPage(scenario: ActivityScenario<BrowserActivity>, url: String) = waitUntil {
-        var loaded = false
-        scenario.onActivity { findWeb(it.window.decorView)?.let { view -> loaded = view.url == url && view.progress == 100 } }
-        loaded
+    private fun waitForPage(scenario: ActivityScenario<BrowserActivity>, url: String) {
+        var actual = "No WebView"
+        waitUntil(description = { "Expected $url; last native state: $actual" }) {
+            var loaded = false
+            scenario.onActivity { findWeb(it.window.decorView)?.let { view ->
+                actual = "${view.url} (${view.progress}%)"; loaded = view.url == url && view.progress == 100
+            } }
+            loaded
+        }
     }
     private fun evaluate(scenario: ActivityScenario<BrowserActivity>, script: String): String {
         val result = AtomicReference<String>()
@@ -112,10 +120,10 @@ class BrowserSecurityDeviceTest {
         assertTrue(latch.await(30, TimeUnit.SECONDS))
         return result.get()
     }
-    private fun waitUntil(condition: () -> Boolean) {
+    private fun waitUntil(description: () -> String = { "Timed out waiting for Android/WebView state" }, condition: () -> Boolean) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120)
         while(System.nanoTime() < deadline) { if(condition()) return; Thread.sleep(200) }
-        fail("Timed out waiting for Android/WebView state")
+        fail(description())
     }
     private fun findWeb(view: View): WebView? {
         if(view is WebView) return view

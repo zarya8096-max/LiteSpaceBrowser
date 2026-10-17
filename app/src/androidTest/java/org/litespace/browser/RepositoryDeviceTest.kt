@@ -64,6 +64,7 @@ class RepositoryDeviceTest {
         val original = LiteApp(name = "Valid", url = "https://example.com")
         assertTrue(runCatching { repository.save(original.copy(id = "../invalid")) }.isFailure)
         assertTrue(runCatching { repository.save(original.copy(icon = "A".repeat(400_001))) }.isFailure)
+        assertTrue(runCatching { repository.save(original.copy(url = "https://example.com/" + "ش".repeat(1500))) }.isFailure)
         repository.save(original)
         val root = JSONObject(repository.export())
         root.getJSONArray("apps").getJSONObject(0).put("icon", "A".repeat(400_001))

@@ -21,7 +21,9 @@ class LocalRepository(private val db: LiteDatabase) : AppRepository {
         require(app.css.length <= 64000 && app.script.length <= 64000) { "Custom code is limited to 64,000 characters per field" }
         require(app.icon.length <= 400_000) { "Icon exceeds 400,000 characters" }
         require(app.profile.length <= 60 && app.profile.matches(Regex("[a-zA-Z0-9_-]*"))) { "Profile: use letters, numbers, underscores or dashes" }
-        dao.save(LiteAppEntity(app.id, app.copy(url = UrlPolicy.normalize(app.url, app.httpsOnly), updatedAt = System.currentTimeMillis())))
+        val normalized = UrlPolicy.normalize(app.url, app.httpsOnly)
+        require(normalized.length <= 8192) { "Encoded URL exceeds 8192 characters" }
+        dao.save(LiteAppEntity(app.id, app.copy(url = normalized, updatedAt = System.currentTimeMillis())))
     }
     override suspend fun delete(id: String) = dao.delete(id)
     override suspend fun export(): String {

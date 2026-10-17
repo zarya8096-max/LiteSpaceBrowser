@@ -85,7 +85,7 @@ import androidx.fragment.app.FragmentActivity
     BackHandler(screen != "home") { screen = "home"; editing = null }
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
         TopAppBar(title = { Text(when(screen) { "edit" -> tr("App configuration", "تنظیمات برنامه"); "settings" -> tr("Settings", "تنظیمات"); "privacy" -> tr("Privacy", "حریم خصوصی"); "backup" -> tr("Backup & restore", "پشتیبان‌گیری و بازیابی"); else -> "LiteSpace" }) },
-            navigationIcon = { if(screen != "home") IconButton(onClick = { screen = "home" }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
+            navigationIcon = { if(screen != "home") IconButton(onClick = { editing = null; screen = "home" }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
             actions = { if(screen == "home") IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) } })
     }, floatingActionButton = {
         if(screen == "home") ExtendedFloatingActionButton(onClick = { editing = LiteApp(); screen = "edit" }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(tr("Create Lite App", "ساخت برنامه سبک")) })

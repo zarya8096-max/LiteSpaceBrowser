@@ -61,6 +61,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
           script: ./gradlew connectedDebugAndroidTest --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx1g
+      - name: Report actual device results
+        if: always()
+        run: python3 scripts/report_device_results.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
