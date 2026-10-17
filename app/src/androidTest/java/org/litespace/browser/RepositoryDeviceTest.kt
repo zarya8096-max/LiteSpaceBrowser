@@ -47,4 +47,33 @@ class RepositoryDeviceTest {
         assertEquals("Original", repository.get(original.id)?.name)
         assertNull(repository.get("second"))
     }
+    @Test fun duplicateIdsAndInvalidSecurityTypesAreRejected() = runBlocking {
+        val original = LiteApp(name = "Protected", url = "https://example.com", lock = true)
+        repository.save(original)
+        val root = JSONObject(repository.export())
+        val first = root.getJSONArray("apps").getJSONObject(0)
+        root.getJSONArray("apps").put(JSONObject(first.toString()).put("lock", false))
+        assertTrue(runCatching { repository.restore(root.toString()) }.isFailure)
+        assertTrue(repository.get(original.id)!!.lock)
+        val malformed = JSONObject(repository.export())
+        malformed.getJSONArray("apps").getJSONObject(0).put("lock", "not-a-boolean")
+        assertTrue(runCatching { repository.restore(malformed.toString()) }.isFailure)
+        assertTrue(repository.get(original.id)!!.lock)
+    }
+    @Test fun saveAndRestoreApplySameFieldLimits() = runBlocking {
+        val original = LiteApp(name = "Valid", url = "https://example.com")
+        assertTrue(runCatching { repository.save(original.copy(id = "../invalid")) }.isFailure)
+        assertTrue(runCatching { repository.save(original.copy(icon = "A".repeat(400_001))) }.isFailure)
+        repository.save(original)
+        val root = JSONObject(repository.export())
+        root.getJSONArray("apps").getJSONObject(0).put("icon", "A".repeat(400_001))
+        assertTrue(runCatching { repository.restore(root.toString()) }.isFailure)
+        assertEquals("", repository.get(original.id)!!.icon)
+    }
+    @Test fun exportsThatCannotBeRestoredAreRejected() = runBlocking {
+        // Each configuration is valid, but their combined UTF-8 JSON exceeds 8 MB.
+        for(index in 0..20) repository.save(LiteApp(id = "large-$index", name = "بزرگ", url = "https://example.com",
+            icon = "A".repeat(399_000)))
+        assertTrue(runCatching { repository.export() }.isFailure)
+    }
 }

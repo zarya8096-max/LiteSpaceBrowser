@@ -28,18 +28,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import org.litespace.browser.LiteSpaceApplication
 import org.litespace.browser.domain.LiteApp
 import org.litespace.browser.web.BrowserActivity
 import org.litespace.browser.web.Shortcuts
 import androidx.webkit.WebViewFeature
+import org.litespace.browser.util.IconImages
+import androidx.fragment.app.FragmentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun Dashboard(model: MainViewModel) {
     val apps by model.apps.collectAsStateWithLifecycle()
     val prefs by model.preferences.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf("home") }
-    var editing by rememberSaveable { mutableStateOf<LiteApp?>(null) }
+    var editing by model.editor
     var query by rememberSaveable { mutableStateOf("") }
     var deleting by remember { mutableStateOf<LiteApp?>(null) }
     var restoreText by remember { mutableStateOf<String?>(null) }
@@ -47,11 +50,29 @@ import androidx.webkit.WebViewFeature
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val container = context.applicationContext as LiteSpaceApplication
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if(uri != null) scope.launch {
-            runCatching { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { it.write(model.repository.export().toByteArray()) } ?: error("Cannot open backup") } }
-                .onSuccess { snack.showSnackbar("Backup saved") }.onFailure { snack.showSnackbar(it.message ?: "Backup failed") }
+    val blocking by container.blocker.stats.collectAsStateWithLifecycle()
+    fun authorizeBackup(title: String, action: () -> Unit) {
+        scope.launch {
+            runCatching { model.repository.apps.first().any { it.lock } }
+                .onSuccess { if(it) DeviceAuth.verify(context as FragmentActivity, title, success = action) else action() }
+                .onFailure { snack.showSnackbar(it.message ?: "Cannot read configurations") }
         }
+    }
+    fun authorizeApp(app: LiteApp, action: (LiteApp) -> Unit) {
+        scope.launch {
+            val current = model.repository.get(app.id) ?: return@launch
+            if(current.lock) DeviceAuth.verify(context as FragmentActivity, "Unlock configuration") { action(current) }
+            else action(current)
+        }
+    }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if(uri != null) authorizeBackup("Unlock backup export") { scope.launch {
+            runCatching { withContext(Dispatchers.IO) {
+                val bytes = model.repository.export().toByteArray(Charsets.UTF_8)
+                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) } ?: error("Cannot open backup")
+            } }
+                .onSuccess { snack.showSnackbar("Backup saved") }.onFailure { snack.showSnackbar(it.message ?: "Backup failed") }
+        } }
     }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if(uri != null) scope.launch {
@@ -60,6 +81,7 @@ import androidx.webkit.WebViewFeature
         }
     }
     LaunchedEffect(model) { model.messages.collect { snack.showSnackbar(it) } }
+    LaunchedEffect(screen, editing == null) { if(screen == "edit" && editing == null) screen = "home" }
     BackHandler(screen != "home") { screen = "home"; editing = null }
     Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
         TopAppBar(title = { Text(when(screen) { "edit" -> tr("App configuration", "تنظیمات برنامه"); "settings" -> tr("Settings", "تنظیمات"); "privacy" -> tr("Privacy", "حریم خصوصی"); "backup" -> tr("Backup & restore", "پشتیبان‌گیری و بازیابی"); else -> "LiteSpace" }) },
@@ -69,7 +91,7 @@ import androidx.webkit.WebViewFeature
         if(screen == "home") ExtendedFloatingActionButton(onClick = { editing = LiteApp(); screen = "edit" }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(tr("Create Lite App", "ساخت برنامه سبک")) })
     }) { padding ->
         when(screen) {
-            "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding), onSave = { model.save(it) { screen = "home" } }) }
+            "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding), onChange = { editing = it }, onSave = { model.save(it) { editing = null; screen = "home" } }) }
             "settings" -> Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(tr("Make space for what matters.", "فضایی برای آنچه مهم است."), style = MaterialTheme.typography.headlineSmall)
                 Text(tr("Appearance", "ظاهر"), style = MaterialTheme.typography.titleMedium)
@@ -82,7 +104,7 @@ import androidx.webkit.WebViewFeature
             }
             "privacy" -> LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { Text(tr("Your browsing stays yours", "مرور شما متعلق به شماست"), style = MaterialTheme.typography.headlineMedium) }
-                item { Text(tr("${container.blocker.count} blocked domains • ${container.blocker.blocked.get()} requests blocked this process", "${container.blocker.count} دامنه مسدود • ${container.blocker.blocked.get()} درخواست مسدود در این اجرا")) }
+                item { Text(tr("${blocking.domains} blocked domains • ${blocking.requests} requests blocked this process", "${blocking.domains} دامنه مسدود • ${blocking.requests} درخواست مسدود در این اجرا")) }
                 item { Button(onClick = model::updateFilters) { Text(tr("Update StevenBlack filters", "به‌روزرسانی فیلترهای StevenBlack")) } }
                 item { Text(tr("Domain blocking only: no cosmetic filtering. Updates contact raw.githubusercontent.com. Some ads and first-party tracking cannot be blocked.", "فقط مسدودسازی دامنه؛ بدون فیلتر ظاهری. به‌روزرسانی به raw.githubusercontent.com متصل می‌شود. همه تبلیغات و ردیاب‌ها قابل مسدودسازی نیستند.")) }
                 item { Text(if(runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }.getOrDefault(false)) tr("Isolated WebView profiles are supported on this device. Apps use separate profiles by default; matching profile names deliberately share sessions.", "پروفایل‌های جدا پشتیبانی می‌شوند. برنامه‌ها به‌طور پیش‌فرض جدا هستند؛ نام پروفایل یکسان نشست مشترک ایجاد می‌کند.") else tr("This WebView shares cookies and website storage across apps. Incognito is unavailable. Update Android System WebView for profile support. Clearing data affects every app.", "این WebView کوکی و داده سایت را بین برنامه‌ها به اشتراک می‌گذارد. حالت ناشناس در دسترس نیست. WebView سیستم را به‌روز کنید. پاک‌کردن داده روی همه برنامه‌ها اثر دارد.")) }
@@ -93,7 +115,7 @@ import androidx.webkit.WebViewFeature
                 Text(tr("Keep your space", "فضای خود را نگه دارید"), style = MaterialTheme.typography.headlineMedium)
                 Text(tr("Exports names, icons, URLs and app settings as plain JSON. Cookies, login sessions and global theme/language are excluded. Custom scripts and URLs can contain secrets; store backups safely.", "نام، آیکون، نشانی و تنظیمات برنامه به صورت JSON ذخیره می‌شود. کوکی، نشست ورود و زبان و ظاهر کلی ذخیره نمی‌شود. اسکریپت و نشانی ممکن است حاوی اطلاعات محرمانه باشد؛ فایل را امن نگه دارید."))
                 Button(onClick = { export.launch("litespace-backup.json") }) { Text(tr("Export backup", "ذخیره پشتیبان")) }
-                OutlinedButton(onClick = { val launch = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }; if(apps.any { it.lock }) DeviceAuth.verify(context as androidx.fragment.app.FragmentActivity, "Unlock restore", launch) else launch() }) { Text(tr("Restore backup", "بازیابی پشتیبان")) }
+                OutlinedButton(onClick = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }) { Text(tr("Restore backup", "بازیابی پشتیبان")) }
             }
             else -> LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item { Text(tr("Your web. Your space.", "وب شما. فضای شما."), style = MaterialTheme.typography.headlineLarge) }
@@ -108,10 +130,10 @@ import androidx.webkit.WebViewFeature
                             var menu by remember { mutableStateOf(false) }
                             Box { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("App actions", "عملیات برنامه")) }
                                 DropdownMenu(menu, { menu = false }) {
-                                    DropdownMenuItem(text = { Text(tr("Edit", "ویرایش")) }, onClick = { menu = false; if(app.lock) DeviceAuth.verify(context as androidx.fragment.app.FragmentActivity, "Unlock configuration") { editing = app; screen = "edit" } else { editing = app; screen = "edit" } })
+                                    DropdownMenuItem(text = { Text(tr("Edit", "ویرایش")) }, onClick = { menu = false; authorizeApp(app) { editing = it; screen = "edit" } })
                                     DropdownMenuItem(text = { Text(tr("Pin to home screen", "افزودن به صفحه اصلی")) }, onClick = { menu = false; scope.launch { snack.showSnackbar(Shortcuts.pin(context, app)) } })
                                     DropdownMenuItem(text = { Text(tr("Private session", "نشست خصوصی")) }, onClick = { menu = false; context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", app.id).putExtra("incognito", true)) })
-                                    DropdownMenuItem(text = { Text(tr("Delete", "حذف")) }, onClick = { menu = false; if(app.lock) DeviceAuth.verify(context as androidx.fragment.app.FragmentActivity, "Unlock configuration") { deleting = app } else deleting = app })
+                                    DropdownMenuItem(text = { Text(tr("Delete", "حذف")) }, onClick = { menu = false; authorizeApp(app) { deleting = it } })
                                 }
                             }
                         }
@@ -120,12 +142,12 @@ import androidx.webkit.WebViewFeature
             }
         }
     }
-    deleting?.let { app -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(tr("Delete ${app.name}?", "حذف ${app.name}؟")) }, text = { Text(tr("Removes this configuration. Clear its website data in the browser first if needed. Existing shortcuts will no longer open it.", "تنظیمات حذف می‌شود. در صورت نیاز ابتدا داده سایت را در مرورگر پاک کنید. میانبر قبلی دیگر آن را باز نمی‌کند.")) }, confirmButton = { TextButton(onClick = { model.delete(app); Shortcuts.disable(context, app); deleting = null }) { Text(tr("Delete", "حذف")) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("Cancel", "لغو")) } }) }
-    restoreText?.let { text -> AlertDialog(onDismissRequest = { restoreText = null }, title = { Text(tr("Restore app configurations?", "بازیابی تنظیمات برنامه؟")) }, text = { Text(tr("Matching IDs are overwritten; other apps are kept. Only import trusted files: custom JavaScript will run when you open imported apps.", "شناسه‌های یکسان جایگزین و بقیه حفظ می‌شوند. فقط فایل قابل اعتماد وارد کنید؛ جاوااسکریپت سفارشی هنگام بازشدن برنامه اجرا می‌شود.")) }, confirmButton = { TextButton(onClick = { restoreText = null; scope.launch { runCatching { withContext(Dispatchers.IO) { model.repository.restore(text) } }.onSuccess { snack.showSnackbar("Restored $it apps") }.onFailure { snack.showSnackbar(it.message ?: "Restore failed") } } }) { Text(tr("Restore", "بازیابی")) } }, dismissButton = { TextButton(onClick = { restoreText = null }) { Text(tr("Cancel", "لغو")) } }) }
+    deleting?.let { app -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(tr("Delete ${app.name}?", "حذف ${app.name}؟")) }, text = { Text(tr("Removes this configuration. Clear its website data in the browser first if needed. Existing shortcuts will no longer open it.", "تنظیمات حذف می‌شود. در صورت نیاز ابتدا داده سایت را در مرورگر پاک کنید. میانبر قبلی دیگر آن را باز نمی‌کند.")) }, confirmButton = { TextButton(onClick = { model.delete(app); deleting = null }) { Text(tr("Delete", "حذف")) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("Cancel", "لغو")) } }) }
+    restoreText?.let { text -> AlertDialog(onDismissRequest = { restoreText = null }, title = { Text(tr("Restore app configurations?", "بازیابی تنظیمات برنامه؟")) }, text = { Text(tr("Matching IDs are overwritten; other apps are kept. Only import trusted files: custom JavaScript will run when you open imported apps.", "شناسه‌های یکسان جایگزین و بقیه حفظ می‌شوند. فقط فایل قابل اعتماد وارد کنید؛ جاوااسکریپت سفارشی هنگام بازشدن برنامه اجرا می‌شود.")) }, confirmButton = { TextButton(onClick = { restoreText = null; authorizeBackup("Unlock restore") { scope.launch { runCatching { withContext(Dispatchers.IO) { model.repository.restore(text) } }.onSuccess { snack.showSnackbar("Restored $it apps") }.onFailure { snack.showSnackbar(it.message ?: "Restore failed") } } } }) { Text(tr("Restore", "بازیابی")) } }, dismissButton = { TextButton(onClick = { restoreText = null }) { Text(tr("Cancel", "لغو")) } }) }
 }
 
 @Composable fun AppIcon(app: LiteApp) {
-    val bitmap = remember(app.icon) { runCatching { val bytes = Base64.decode(app.icon, Base64.DEFAULT); BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() }
+    val bitmap = remember(app.icon) { IconImages.decode(app.icon) }
     if(bitmap != null) Image(bitmap.asImageBitmap(), app.name, Modifier.size(48.dp))
     else Surface(modifier = Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = androidx.compose.ui.graphics.Color(app.accent)) { Box(contentAlignment = Alignment.Center) { Text(app.name.take(1).uppercase(), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge) } }
 }

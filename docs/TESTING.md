@@ -2,7 +2,9 @@
 
 Automated: `./gradlew testDebugUnitTest lintDebug assembleDebug`.
 Unit tests cover URL scheme/credential rejection, HTTPS upgrades, origin boundaries,
-hosts parsing/domain boundaries and bounded stream reading.
+hosts parsing/domain boundaries, raw encoded URL preservation, IDN/IPv6/default
+ports, invalid ports, cancellation/partial runtime permission results, stale-result
+isolation and bounded stream reading.
 
 Device acceptance matrix (must be run before a production release): Android 8/API 26
 with an older provider, current Android with current System WebView, Persian RTL,
@@ -45,3 +47,24 @@ Android instrumentation suite (connected device/emulator):
 
 `RepositoryDeviceTest` verifies real SQLite/Room backup round trips and rollback of
 partly invalid imports. `LaunchDeviceTest` exercises dashboard/browser Activity lifecycle.
+
+Deep-debug instrumentation adds real WebView tests for disabled JavaScript, origin
+boundaries and navigation while a website permission prompt is visible; Room tests
+cover duplicate IDs, strict security-field types, icon bounds and oversized export.
+An image decoder test uses a compressed 2048×2048 bitmap and checks 192×192 output.
+
+Foreground lock regression is opt-in. **Use a disposable emulator**, configure its
+screen PIN yourself, then pass that test PIN to the instrumentation runner:
+
+```sh
+adb shell am instrument -w -r \
+  -e class org.litespace.browser.ForegroundLockDeviceTest \
+  -e testDevicePin YOUR_DISPOSABLE_EMULATOR_PIN \
+  org.litespace.browser.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+The test does not change device credentials. It performs two real Android credential
+confirmations, goes Home between them, verifies hidden/secure browser content while
+locked, and checks the existing WebView is preserved after unlocking. It is skipped
+without the opt-in argument. Physical biometric and current-provider acceptance
+remain separate checks.

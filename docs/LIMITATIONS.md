@@ -19,7 +19,9 @@
   and in Android's download history.
 * Clear-on-exit means Activity destruction, not every background transition. Android
   does not guarantee callbacks on force-stop/process death. Clearing a shared profile
-  signs out all its apps. Cache APIs may have provider-specific scope. Configuration
+  signs out all its apps. Without DELETE_BROWSING_DATA, the fallback clears
+  cookies, DOM storage and cache but cannot guarantee removal of service-worker
+  registrations, Cache Storage and all provider-specific stores. Cache APIs may have provider-specific scope. Configuration
   deletion does not erase persistent profile data: clear it before deleting the app.
 * Website Web Push / Notification API / service-worker push notifications are not
   implemented by Android WebView. There is no fake push, periodic website scraping,
@@ -49,10 +51,13 @@
   may need an observer in user scripts. No native JavaScript bridge is exposed.
 * Algorithmic darkening depends on the installed WebView and the site's styling.
   A custom user-agent overrides the desktop toggle. HTTPS-only upgrades navigation
-  and rejects HTTP subresources; certificate failures are always cancelled. Explicitly
+  and rejects HTTP subresources; download URLs are upgraded before handing them to
+  DownloadManager, which owns subsequent redirects and network policy; certificate failures are always cancelled. Explicitly
   disabling HTTPS-only allows cleartext HTTP, while mixed content remains blocked.
-* Device biometrics/system PIN protect opening, editing, deleting and overwriting
-  protected app configurations. This is a device-auth gate, not encryption or a
+* Device biometrics/system PIN protect opening, editing, deleting, exporting and overwriting
+  protected app configurations. Protected browsers and open protected editors require
+  authentication again after leaving the foreground; a document picker can also
+  trigger this check. Browser file selections are withheld until authentication succeeds. This is a device-auth gate, not encryption or a
   separately stored app PIN. The manager still shows names and URLs. Root/debug access
   and malicious backups are outside this protection. No biometric data is stored.
 * Persian/English Compose management and browser controls support RTL. Some system
@@ -61,6 +66,11 @@
   cookies, website data, global theme/language and device credentials. Restore merges
   IDs transactionally after confirmation. It accepts at most 8 MB / 5000 entries as
   parser safety bounds; this does not limit the number of Lite Apps stored locally.
+  Export applies the same UTF-8 byte and app-count bounds and fails explicitly before
+  writing if exceeded. Reduce custom icon/code size before exporting an oversized
+  collection. Duplicate IDs and incorrectly typed security fields are rejected.
+  Unsaved editor drafts survive configuration changes in the ViewModel, but are
+  deliberately not saved into Activity Bundles and are lost on process death.
 
 ## Android API references
 
@@ -84,5 +94,7 @@ LiteSpace cannot override a website's compatibility or authentication policy. Ke
 the device OS and WebView provider updated. API 26 compatibility does not supply
 security updates to a provider that its vendor no longer maintains.
 
-Browser settings are snapshots taken at launch. Reopen an existing browser Activity
-after editing its configuration or changing the global language/theme.
+Browser settings are snapshots taken at launch. Editing, restoring over or deleting
+a configuration closes its existing browser Activities, including background ones,
+so revoked permissions and new lock settings cannot leave stale browsers running.
+Reopen to apply new configuration. Global language/theme changes apply on next launch.

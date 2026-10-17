@@ -6,6 +6,27 @@ import org.litespace.browser.domain.*
 import org.litespace.browser.util.readBounded
 
 class PoliciesTest {
+    @Test fun upgradePreservesEncodedPathQueryAndFragment() {
+        assertEquals("https://example.com/a%2Fb?q=%26%3D%2F#x%23y",
+            UrlPolicy.normalize("http://example.com:80/a%2Fb?q=%26%3D%2F#x%23y"))
+    }
+    @Test fun canonicalizesInternationalHostsAndDefaultPorts() {
+        assertEquals("https://xn--bcher-kva.de/", UrlPolicy.normalize("HTTPS://BÜCHER.de/"))
+        assertEquals("https://example.com", UrlPolicy.origin("HTTPS://EXAMPLE.com:443/a"))
+        assertEquals("http://example.com", UrlPolicy.origin("http://example.com:80"))
+        assertEquals("https://[::1]:8443", UrlPolicy.origin("https://[::1]:8443/test"))
+    }
+    @Test fun rejectsMalformedPortsAuthoritiesAndAmbiguousHosts() {
+        listOf("https://example.com:65536", "https://example.com:-1", "https://example.com:",
+            "https://user@example.com", "https://example.com\\evil", "https://exa%6dple.com").forEach {
+            assertTrue("Must reject $it", runCatching { UrlPolicy.normalize(it) }.isFailure)
+        }
+    }
+    @Test fun doesNotSilentlyMapDistinctInternationalDomains() {
+        assertTrue(runCatching { UrlPolicy.normalize("https://faß.de") }.isFailure)
+        assertEquals("https://xn--fa-hia.de", UrlPolicy.normalize("https://xn--fa-hia.de"))
+        assertTrue(UrlPolicy.normalize("https://مثال.ایران/صفحه").startsWith("https://xn--"))
+    }
     @Test fun normalizesWebsitesAndUpgradesHttp() {
         assertEquals("https://example.com", UrlPolicy.normalize(" example.com "))
         assertEquals("https://example.com/path?q=1#fragment", UrlPolicy.normalize("http://example.com:80/path?q=1#fragment"))
