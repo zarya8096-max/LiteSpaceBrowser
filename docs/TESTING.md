@@ -12,8 +12,9 @@ light/dark theme, gesture navigation and a launcher with/without pin support.
    by name and group; favorite ordering. Import a large image as icon; pin both apps.
 2. Same login website in two isolated apps: different cookies/localStorage. Set matching
    shared profile names: sessions shared. Older provider: warning and no private launch.
-3. Private session: login, close, reopen; login gone. Force-stop while private; relaunch
-   browser and verify orphan profile removal. Download a file; verify it remains.
+3. Private session on a provider supporting MULTI_PROFILE and DELETE_BROWSING_DATA:
+   login, close, reopen; login gone. Force-stop while private; restart the process,
+   relaunch browser and verify orphan profile removal. Download a file; verify it remains.
 4. Blocked domain in an iframe: blocked; similar-suffix nonblocked domain loads. Update
    filters offline: existing rules remain. Reload a site broken by filtering after
    disabling per-app blocking. Inspect known service-worker limitations separately.
@@ -22,7 +23,8 @@ light/dark theme, gesture navigation and a launcher with/without pin support.
 6. Geolocation/camera/microphone: toggle off, toggle on + deny, allow, navigate to a new
    origin while prompt is visible, revoke system permission. Verify no silent grants.
 7. Upload with single/multiple file selection, cancel picker, rotate. Download ordinary
-   and authenticated HTTP links on API 26/28/35, deny storage on API 28. Blob gets notice.
+   and signed HTTP links on API 26/28/35, deny storage on API 28. Cookie-only protected
+   downloads require a signed link or an external browser; verify no cookies are exported. Blob gets notice.
 8. Pull refresh at top, scrolling below top, edge back/forward, system back, hide/show
    controls, zoom, desktop UA, custom UA, text size, dark-supported site, fullscreen video
    and back from video. Pause/resume, rotation, renderer crash, low-memory process death.

@@ -9,10 +9,14 @@
   profile names share cookies and storage. Older WebViews share the default profile
   and display a warning. Separate processes/data-directory suffixes are not used:
   they cannot provide unlimited simultaneous independent profiles on API 26.
-* Incognito is available only with MULTI_PROFILE. It uses temporary disk storage,
-  clears on normal close, and removes orphan profiles on the next browser launch.
-  Force-stop/power loss can leave data until that next launch. It is not anonymity.
-  Downloads remain in Downloads and in Android's download history.
+* Incognito requires both MULTI_PROFILE and DELETE_BROWSING_DATA support. It uses
+  temporary disk storage and clears browsing data asynchronously on normal close.
+  AndroidX cannot delete a profile loaded into the current process, even after its
+  WebViews are destroyed. Unloaded temporary profile directories are deleted on a
+  browser launch after process restart. Force-stop/power loss can leave data until
+  that next launch, and can interrupt pending asynchronous cleanup. Profile names
+  may remain until that removal. This is not anonymity. Downloads remain in Downloads
+  and in Android's download history.
 * Clear-on-exit means Activity destruction, not every background transition. Android
   does not guarantee callbacks on force-stop/process death. Clearing a shared profile
   signs out all its apps. Cache APIs may have provider-specific scope. Configuration
@@ -32,8 +36,10 @@
 * Pop-ups require a user gesture and confirmation, then open in the same WebView.
   Multi-window opener/postMessage-dependent OAuth flows may require an external
   browser. Downloads support HTTP(S) links through DownloadManager, not blob/data URLs,
-  POST-only downloads, or a custom background download service. Cookies are passed to
-  DownloadManager for authenticated downloads; those jobs can outlive this Activity.
+  POST-only downloads, or a custom background download service. Website cookies are never passed to
+  DownloadManager, whose custom headers may be forwarded across redirects. Protected
+  files need a direct signed download link or an external browser. Download jobs can
+  outlive this Activity.
 * Website permissions default to denied in configuration. Enabling a capability only
   permits a subsequent per-origin confirmation and Android runtime permission request.
   Cross-origin frames cannot request camera/microphone/location; only the top HTTPS
@@ -59,6 +65,7 @@
 ## Android API references
 
 - [AndroidX WebKit profiles](https://developer.android.com/reference/androidx/webkit/Profile)
+- [Profile deletion restrictions](https://developer.android.com/reference/androidx/webkit/ProfileStore#deleteProfile(java.lang.String))
 - [Runtime feature detection](https://developer.android.com/reference/androidx/webkit/WebViewFeature)
 - [Browsing-data deletion](https://developer.android.com/reference/androidx/webkit/WebStorageCompat)
 - [Pinned shortcuts](https://developer.android.com/develop/ui/views/launch/shortcuts/creating-shortcuts)

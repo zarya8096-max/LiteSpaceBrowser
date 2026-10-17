@@ -65,6 +65,7 @@ class BrowserActivity : FragmentActivity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var permissionResult: ((Boolean) -> Unit)? = null
     private var popup: WebView? = null
+    private val dialogs = mutableSetOf<android.app.AlertDialog>()
     private var cleaned = false
     private var errorLoading = false
     private var retryUrl: String? = null
@@ -83,11 +84,19 @@ class BrowserActivity : FragmentActivity() {
             val found = intent.getStringExtra("app_id")?.let { container.repository.get(it) }
             if(found == null) { toast("This Lite App no longer exists"); finish(); return@launch }
             app = found
+            if(runCatching { WebViewCompat.getCurrentWebViewPackage(this@BrowserActivity) }.getOrNull() == null) {
+                val persian = container.preferences.flow.first().language == "fa"
+                showDialog(android.app.AlertDialog.Builder(this@BrowserActivity)
+                    .setTitle(if(persian) "WebView در دسترس نیست" else "WebView unavailable")
+                    .setMessage(if(persian) "Android System WebView یا Chrome را در تنظیمات اندروید فعال یا نصب کنید و دوباره برنامه را باز کنید." else "Enable or install Android System WebView or Chrome in Android settings, then reopen this Lite App.")
+                    .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.setOnCancelListener { finish() })
+                return@launch
+            }
             temporary = intent.getBooleanExtra("incognito", false)
-            if(temporary && !WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-                android.app.AlertDialog.Builder(this@BrowserActivity).setTitle("Private session unavailable")
-                    .setMessage("Update Android System WebView. This device cannot isolate temporary sessions safely.")
-                    .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.setOnCancelListener { finish() }.show()
+            if(temporary && (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) || !WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA))) {
+                showDialog(android.app.AlertDialog.Builder(this@BrowserActivity).setTitle("Private session unavailable")
+                    .setMessage("Update Android System WebView. Private sessions require isolated profiles and complete browsing-data deletion support.")
+                    .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.setOnCancelListener { finish() })
                 return@launch
             }
             if(app.lock) authenticate() else openBrowser()
@@ -114,7 +123,8 @@ class BrowserActivity : FragmentActivity() {
         web = view
         if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
             val store = ProfileStore.getInstance()
-            // Remove orphaned temporary profiles after process death; active sessions are tracked below.
+            // AndroidX cannot delete profiles loaded in this process, even after WebView destruction.
+            // Unloaded orphan profiles from an earlier process can be deleted here.
             store.allProfileNames.filter { it.startsWith("private-") && it !in activeProfiles }.forEach { runCatching { store.deleteProfile(it) } }
             val name = if(temporary) "private-${UUID.randomUUID()}" else if(app.profile.isBlank()) "app-${app.id}" else "shared-${app.profile}"
             profile = store.getOrCreateProfile(name)
@@ -236,8 +246,22 @@ class BrowserActivity : FragmentActivity() {
                 if(!app.popups || !isUserGesture) return false
                 popup?.destroy()
                 val child = WebView(this@BrowserActivity)
+                if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                    profile?.let { WebViewCompat.setProfile(child, it.name) }
+                }
+                // The temporary window only captures a URL. It must never send an
+                // unconfirmed request (POST navigations bypass shouldOverrideUrlLoading).
+                child.settings.blockNetworkLoads = true
+                child.settings.allowFileAccess = false
+                child.settings.allowContentAccess = false
                 popup = child
                 child.webViewClient = object : WebViewClient() {
+                    override fun onReceivedError(w: WebView, request: WebResourceRequest, error: WebResourceError) {
+                        if(request.isForMainFrame) {
+                            toast("This pop-up needs an external browser")
+                            w.post { w.destroy(); if(popup === w) popup = null }
+                        }
+                    }
                     override fun shouldOverrideUrlLoading(w: WebView, request: WebResourceRequest): Boolean {
                         val target = request.url.toString()
                         if(request.url.scheme in listOf("https", "http")) confirm("Open pop-up in this app?", target) { view.loadUrl(UrlPolicy.normalize(target, app.httpsOnly)) }
@@ -334,9 +358,9 @@ class BrowserActivity : FragmentActivity() {
         }
     }
     private fun askWebsite(message: String, permissions: Array<String>, callback: (Boolean) -> Unit) {
-        android.app.AlertDialog.Builder(this).setTitle(app.name).setMessage(message)
+        showDialog(android.app.AlertDialog.Builder(this).setTitle(app.name).setMessage(message)
             .setPositiveButton("Allow once") { _, _ -> requestRuntime(permissions, callback) }
-            .setNegativeButton("Deny") { _, _ -> callback(false) }.setOnCancelListener { callback(false) }.show()
+            .setNegativeButton("Deny") { _, _ -> callback(false) }.setOnCancelListener { callback(false) })
     }
     private fun requestRuntime(permissions: Array<String>, callback: (Boolean) -> Unit) {
         if(permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) { callback(true); return }
@@ -345,7 +369,13 @@ class BrowserActivity : FragmentActivity() {
     }
     private fun dismissRequests() { permissionResult?.invoke(false); permissionResult = null }
     private fun confirm(title: String, message: String, yes: () -> Unit) {
-        android.app.AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton(android.R.string.ok) { _, _ -> yes() }.setNegativeButton(android.R.string.cancel, null).show()
+        showDialog(android.app.AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton(android.R.string.ok) { _, _ -> yes() }.setNegativeButton(android.R.string.cancel, null))
+    }
+    private fun showDialog(builder: android.app.AlertDialog.Builder) {
+        val dialog = builder.create()
+        dialogs.add(dialog)
+        dialog.setOnDismissListener { dialogs.remove(dialog) }
+        dialog.show()
     }
     private fun download(url: String, agent: String, disposition: String?, mime: String?) {
         runCatching {
@@ -354,7 +384,9 @@ class BrowserActivity : FragmentActivity() {
                 .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, disposition, mime))
                 .setNotificationVisibility(if(app.downloadNotifications) DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED else DownloadManager.Request.VISIBILITY_VISIBLE)
                 .addRequestHeader("User-Agent", agent)
-            cookies().getCookie(url)?.let { request.addRequestHeader("Cookie", it) }
+            // DownloadManager can forward custom headers across redirects. Never
+            // export profile cookies to it; protected files need a signed link or
+            // an external browser instead of risking cross-origin credential leaks.
             getSystemService(DownloadManager::class.java).enqueue(request)
         }.onSuccess { toast("Download started") }.onFailure { toast(it.message ?: "Download failed") }
     }
@@ -369,11 +401,12 @@ class BrowserActivity : FragmentActivity() {
     override fun onPause() { web?.onPause(); super.onPause() }
     override fun onResume() { super.onResume(); web?.onResume() }
     override fun onDestroy() {
+        dialogs.toList().forEach { it.dismiss() }; dialogs.clear()
         hideVideo(); dismissRequests(); fileCallback?.onReceiveValue(null); fileCallback = null
-        if(::app.isInitialized && (web != null || profile != null) && !cleaned && app.clearOnExit && !temporary) { clearData(); cleaned = true }
+        if(::app.isInitialized && (web != null || profile != null) && !cleaned && (app.clearOnExit || temporary)) { clearData(); cleaned = true }
         popup?.destroy(); popup = null
         web?.let { view -> (view.parent as? android.view.ViewGroup)?.removeView(view); view.stopLoading(); view.webChromeClient = null; view.destroy() }; web = null; refresh = null
-        if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.let { p -> activeProfiles.remove(p.name); if(temporary) runCatching { ProfileStore.getInstance().deleteProfile(p.name) } }
+        if(profile != null && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.let { p -> activeProfiles.remove(p.name) }
         super.onDestroy()
     }
     companion object {

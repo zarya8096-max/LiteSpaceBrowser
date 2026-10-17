@@ -10,7 +10,9 @@ and blocker; no Activity or WebView is retained in it.
 
 BrowserActivity owns exactly one primary WebView and destroys it with the Activity.
 It assigns an AndroidX WebKit profile before navigation when MULTI_PROFILE is available.
-An incognito session requires multi-profile support and uses a unique disposable profile.
+An incognito session requires multi-profile and full browsing-data deletion support.
+It uses a unique temporary profile: data clears on close, and its directory is reclaimed
+after process restart (AndroidX forbids deleting profiles already loaded into memory).
 Device authentication gates protected app launches, including pinned shortcuts.
 Permission grants are requested per origin and per session, constrained by per-app toggles.
 Custom scripts have the same privileges as the page, with no native JS bridge.

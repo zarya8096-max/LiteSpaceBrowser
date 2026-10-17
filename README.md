@@ -52,7 +52,7 @@ For command-line signing:
 keytool -genkeypair -keystore /secure/litespace.jks -alias litespace \
   -keyalg RSA -keysize 3072 -validity 10000
 # Use your SDK's build-tools/35.0.0 binaries:
-zipalign -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+zipalign -P 16 -f 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
 apksigner sign --ks /secure/litespace.jks --ks-key-alias litespace \
   --out litespace-release.apk aligned.apk
 apksigner verify --verbose litespace-release.apk
