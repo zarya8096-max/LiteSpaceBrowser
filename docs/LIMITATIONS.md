@@ -83,3 +83,6 @@ the installed WebView cannot provide. Use an external browser for those sites;
 LiteSpace cannot override a website's compatibility or authentication policy. Keep
 the device OS and WebView provider updated. API 26 compatibility does not supply
 security updates to a provider that its vendor no longer maintains.
+
+Browser settings are snapshots taken at launch. Reopen an existing browser Activity
+after editing its configuration or changing the global language/theme.

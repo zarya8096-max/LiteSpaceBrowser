@@ -21,10 +21,11 @@ class ProfileDeviceTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         var supported = false
         instrumentation.runOnMainSync {
-            supported = runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) &&
-                WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA) }.getOrDefault(false)
+            supported = runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }.getOrDefault(false)
+            val fullClear = runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA) }.getOrDefault(false)
+            android.util.Log.i("LiteSpaceVerification", "multiProfile=$supported fullDataDeletion=$fullClear")
         }
-        assumeTrue("Provider needs profiles and full data clearing", supported)
+        assumeTrue("Provider needs isolated profiles", supported)
         lateinit var first: Profile
         lateinit var second: Profile
         val suffix = UUID.randomUUID().toString()
@@ -49,8 +50,8 @@ class ProfileDeviceTest {
             assertTrue(secondCookies.orEmpty().contains("session=second"))
             assertFalse(secondCookies.orEmpty().contains("session=first"))
             val cleared = CountDownLatch(1)
-            instrumentation.runOnMainSync { WebStorageCompat.deleteBrowsingData(first.webStorage) { cleared.countDown() } }
-            assertTrue("Full deletion completes", cleared.await(30, TimeUnit.SECONDS))
+            instrumentation.runOnMainSync { clear(first) { cleared.countDown() } }
+            assertTrue("Profile clearing completes", cleared.await(30, TimeUnit.SECONDS))
             instrumentation.runOnMainSync {
                 firstCookies = first.cookieManager.getCookie(origin)
                 secondCookies = second.cookieManager.getCookie(origin)
@@ -62,10 +63,15 @@ class ProfileDeviceTest {
             // now; BrowserActivity reclaims these private-* directories on next startup.
             val cleared = CountDownLatch(2)
             instrumentation.runOnMainSync {
-                WebStorageCompat.deleteBrowsingData(first.webStorage) { cleared.countDown() }
-                WebStorageCompat.deleteBrowsingData(second.webStorage) { cleared.countDown() }
+                clear(first) { cleared.countDown() }
+                clear(second) { cleared.countDown() }
             }
             cleared.await(30, TimeUnit.SECONDS)
         }
+    }
+    private fun clear(profile: Profile, done: () -> Unit) {
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA))
+            WebStorageCompat.deleteBrowsingData(profile.webStorage) { done() }
+        else profile.cookieManager.removeAllCookies { done() }
     }
 }

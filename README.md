@@ -64,6 +64,9 @@ A release signed with your key cannot update the differently signed debug app; e
 configuration before uninstalling it. For Play distribution, produce and sign an AAB
 and complete current store privacy/permission requirements separately.
 
+See the [verification record](docs/VERIFICATION.md) for completed checks and the
+Android 15 emulator limitation.
+
 ## Structure and testing
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): ownership and dependency flow.
