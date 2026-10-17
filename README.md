@@ -4,6 +4,8 @@ An original, open-source Android browser that turns websites into configurable
 Lite Apps. Kotlin · Jetpack Compose / Material 3 · Room · DataStore · Android 8+.
 No accounts, analytics, subscription tiers, root access or paid APIs.
 
+<img src="docs/screenshots/dashboard-api26.png" width="260" alt="LiteSpace dashboard running on Android 8" />
+
 ## Features
 
 - Unlimited locally stored Lite Apps, search, groups, favorites, custom icons and accents.

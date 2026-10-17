@@ -77,3 +77,9 @@ that deliberately shares its profile (or any entry using shared storage on an ol
 WebView) can access the same website session. Use supported isolated profiles when
 session separation matters. Website and WebView-provider traffic, including Safe
 Browsing checks, is separate from LiteSpace, which has no analytics endpoint.
+
+Some websites reject embedded browsers, block embedded sign-in, or require DRM that
+the installed WebView cannot provide. Use an external browser for those sites;
+LiteSpace cannot override a website's compatibility or authentication policy. Keep
+the device OS and WebView provider updated. API 26 compatibility does not supply
+security updates to a provider that its vendor no longer maintains.

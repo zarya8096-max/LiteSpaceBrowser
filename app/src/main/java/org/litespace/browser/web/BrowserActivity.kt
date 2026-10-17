@@ -182,7 +182,7 @@ class BrowserActivity : FragmentActivity() {
                     return true
                 }
                 if(app.httpsOnly && scheme == "http") {
-                    if(request.isForMainFrame) v.loadUrl(UrlPolicy.normalize(request.url.toString()))
+                    if(request.isForMainFrame) navigate(request.url.toString())
                     return true
                 }
                 return false
@@ -264,7 +264,7 @@ class BrowserActivity : FragmentActivity() {
                     }
                     override fun shouldOverrideUrlLoading(w: WebView, request: WebResourceRequest): Boolean {
                         val target = request.url.toString()
-                        if(request.url.scheme in listOf("https", "http")) confirm("Open pop-up in this app?", target) { view.loadUrl(UrlPolicy.normalize(target, app.httpsOnly)) }
+                        if(request.url.scheme in listOf("https", "http")) confirm("Open pop-up in this app?", target) { navigate(target) }
                         w.post { w.destroy(); if(popup === w) popup = null }; return true
                     }
                 }
@@ -343,6 +343,12 @@ class BrowserActivity : FragmentActivity() {
         }
     }
 
+    private fun navigate(url: String) {
+        // Redirects and popup URLs are untrusted website input, unlike saved configs.
+        runCatching { UrlPolicy.normalize(url, app.httpsOnly) }
+            .onSuccess { web?.loadUrl(it) }
+            .onFailure { toast("This website link is not supported") }
+    }
     private fun reloadPage() { if(web?.url == ERROR_PAGE) web?.loadUrl(retryUrl ?: app.url) else web?.reload() }
 
     private fun cookies(): CookieManager = if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.cookieManager ?: CookieManager.getInstance() else CookieManager.getInstance()
