@@ -87,11 +87,17 @@ class BrowserSecurityDeviceTest {
     }
     @Test fun websiteDialogDoesNotSurviveBackgrounding() = withConfig(LiteApp(name = "Dialog lifecycle", url = offline)) { scenario ->
         waitForPage(scenario, offline)
-        scenario.onActivity { findWeb(it.window.decorView)!!.evaluateJavascript("alert('LiteSpace website dialog test'); window.afterDialog='finished';", null) }
+        lateinit var resume: Intent
+        scenario.onActivity { activity ->
+            resume = Intent(application, BrowserActivity::class.java).putExtra("app_id", activity.intent.getStringExtra("app_id"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            findWeb(activity.window.decorView)!!.evaluateJavascript("alert('LiteSpace website dialog test'); window.afterDialog='finished';", null)
+        }
         assertTrue(device.wait(Until.hasObject(By.text("LiteSpace website dialog test")), 30_000))
         device.pressHome()
         waitUntil { scenario.state == androidx.lifecycle.Lifecycle.State.CREATED }
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        application.startActivity(resume)
+        waitUntil { scenario.state == androidx.lifecycle.Lifecycle.State.RESUMED }
         assertTrue("Website dialogs must be dismissed on stop", device.wait(Until.gone(By.text("LiteSpace website dialog test")), 15_000))
         waitUntil { evaluate(scenario, "window.afterDialog") == "\"finished\"" }
     }
