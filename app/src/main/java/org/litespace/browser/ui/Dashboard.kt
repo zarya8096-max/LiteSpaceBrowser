@@ -127,5 +127,5 @@ import androidx.webkit.WebViewFeature
 @Composable fun AppIcon(app: LiteApp) {
     val bitmap = remember(app.icon) { runCatching { val bytes = Base64.decode(app.icon, Base64.DEFAULT); BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() }
     if(bitmap != null) Image(bitmap.asImageBitmap(), app.name, Modifier.size(48.dp))
-    else FilledIconButton(onClick = {}, modifier = Modifier.size(48.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = androidx.compose.ui.graphics.Color(app.accent))) { Text(app.name.take(1).uppercase(), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge) }
+    else Surface(modifier = Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = androidx.compose.ui.graphics.Color(app.accent)) { Box(contentAlignment = Alignment.Center) { Text(app.name.take(1).uppercase(), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge) } }
 }
