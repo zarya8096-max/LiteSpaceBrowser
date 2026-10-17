@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,6 +50,7 @@ import androidx.fragment.app.FragmentActivity
     var restoreText by remember { mutableStateOf<String?>(null) }
     val snack = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val createLabel = tr("Create Lite App", "ساخت برنامه سبک")
     val scope = rememberCoroutineScope()
     val container = context.applicationContext as LiteSpaceApplication
     val blocking by container.blocker.stats.collectAsStateWithLifecycle()
@@ -88,7 +91,7 @@ import androidx.fragment.app.FragmentActivity
             navigationIcon = { if(screen != "home") IconButton(onClick = { editing = null; screen = "home" }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
             actions = { if(screen == "home") IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) } })
     }, floatingActionButton = {
-        if(screen == "home") ExtendedFloatingActionButton(onClick = { editing = LiteApp(); screen = "edit" }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(tr("Create Lite App", "ساخت برنامه سبک")) })
+        if(screen == "home") ExtendedFloatingActionButton(onClick = { editing = LiteApp(); screen = "edit" }, modifier = Modifier.semantics { contentDescription = createLabel }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(createLabel) })
     }) { padding ->
         when(screen) {
             "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding), onChange = { editing = it }, onSave = { model.save(it) { editing = null; screen = "home" } }) }

@@ -51,11 +51,13 @@ class MainActivity : FragmentActivity() {
     }
     override fun onResume() {
         super.onResume()
-        if(editorLocked && model.editor.value?.lock == true && !authenticating) {
-            authenticating = true
-            DeviceAuth.verify(this, "Unlock configuration", failure = {
-                authenticating = false; model.editor.value = null; editorLocked = false
-            }) { authenticating = false; editorLocked = false }
+        window.decorView.post {
+            if(lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED && editorLocked && model.editor.value?.lock == true && !authenticating && !isFinishing) {
+                authenticating = true
+                DeviceAuth.verify(this, "Unlock configuration", failure = {
+                    authenticating = false; model.editor.value = null; editorLocked = false
+                }) { authenticating = false; editorLocked = false }
+            }
         }
     }
 }

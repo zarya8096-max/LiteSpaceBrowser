@@ -85,6 +85,16 @@ class BrowserSecurityDeviceTest {
             waitUntil { scenario.state == androidx.lifecycle.Lifecycle.State.DESTROYED }
         }
     }
+    @Test fun websiteDialogDoesNotSurviveBackgrounding() = withConfig(LiteApp(name = "Dialog lifecycle", url = offline)) { scenario ->
+        waitForPage(scenario, offline)
+        scenario.onActivity { findWeb(it.window.decorView)!!.evaluateJavascript("alert('LiteSpace website dialog test'); window.afterDialog='finished';", null) }
+        assertTrue(device.wait(Until.hasObject(By.text("LiteSpace website dialog test")), 30_000))
+        device.pressHome()
+        waitUntil { scenario.state == androidx.lifecycle.Lifecycle.State.CREATED }
+        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        assertTrue("Website dialogs must be dismissed on stop", device.wait(Until.gone(By.text("LiteSpace website dialog test")), 15_000))
+        waitUntil { evaluate(scenario, "window.afterDialog") == "\"finished\"" }
+    }
 
     @Test fun protectedAppFailsClosedWithoutDeviceCredential() {
         assumeFalse(application.getSystemService(KeyguardManager::class.java).isDeviceSecure)

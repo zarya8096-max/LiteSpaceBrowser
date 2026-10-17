@@ -44,7 +44,9 @@ class EditorStateDeviceTest {
         app.registerActivityLifecycleCallbacks(callback)
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                device.wait(Until.findObject(By.text(Pattern.compile("Create Lite App|ساخت برنامه سبک"))), 30_000)!!.click()
+                val create = device.wait(Until.findObject(By.desc(Pattern.compile("Create Lite App|ساخت برنامه سبک"))), 30_000)
+                assertNotNull("Create button must have an accessible label", create)
+                create!!.click()
                 val draft = LiteApp(name = "Large draft", url = "https://example.com", icon = "A".repeat(399_000),
                     css = "ش".repeat(64_000), script = "ش".repeat(64_000))
                 scenario.onActivity { ViewModelProvider(it)[MainViewModel::class.java].editor.value = draft }

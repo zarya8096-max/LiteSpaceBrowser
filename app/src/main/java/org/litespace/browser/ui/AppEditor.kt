@@ -67,9 +67,10 @@ import org.litespace.browser.domain.LiteApp
             Toggle(tr("Require HTTPS", "الزام HTTPS"), app.httpsOnly) { onChange(app.copy(httpsOnly = it)) }
             Toggle(tr("Allow third-party cookies", "اجازه کوکی شخص ثالث"), app.thirdPartyCookies) { onChange(app.copy(thirdPartyCookies = it)) }
             Toggle(tr("Clear profile data on normal exit", "پاک‌کردن داده پروفایل هنگام خروج عادی"), app.clearOnExit) { onChange(app.copy(clearOnExit = it)) }
-            Text(tr("Shared profile clearing affects all apps in that profile. On older WebView it affects all apps. Android cannot guarantee exit cleanup after process termination.", "پاک‌کردن پروفایل مشترک بر همه برنامه‌های آن اثر دارد؛ در WebView قدیمی روی همه برنامه‌ها. پس از بسته‌شدن اجباری، پاک‌سازی هنگام خروج تضمین نمی‌شود."), style = MaterialTheme.typography.bodySmall)
+            Text(tr("Shared profile clearing affects all apps in that profile. On older WebView it affects all apps and may retain service-worker data. Android cannot guarantee exit cleanup after process termination.", "پاک‌کردن پروفایل مشترک بر همه برنامه‌های آن اثر دارد؛ در WebView قدیمی روی همه برنامه‌ها و ممکن است داده سرویس‌ورکر باقی بماند. پس از توقف اجباری، پاک‌سازی هنگام خروج تضمین نمی‌شود."), style = MaterialTheme.typography.bodySmall)
             Field(tr("Shared profile name (blank = own profile)", "نام پروفایل مشترک (خالی = مستقل)"), app.profile, limit = 60) { onChange(app.copy(profile = it)) }
             Toggle(tr("Require biometrics or device PIN", "نیاز به اثر انگشت یا رمز دستگاه"), app.lock) { onChange(app.copy(lock = it)) }
+            Text(tr("Locks this entry. Other entries sharing its website storage can still access the same login session.", "این ورودی قفل می‌شود؛ برنامه‌هایی که داده سایت را با آن مشترک دارند همچنان به همان نشست ورود دسترسی دارند."), style = MaterialTheme.typography.bodySmall)
             Toggle(tr("Allow location requests", "اجازه درخواست موقعیت"), app.location) { onChange(app.copy(location = it)) }
             Toggle(tr("Allow camera requests", "اجازه درخواست دوربین"), app.camera) { onChange(app.copy(camera = it)) }
             Toggle(tr("Allow microphone requests", "اجازه درخواست میکروفون"), app.microphone) { onChange(app.copy(microphone = it)) }

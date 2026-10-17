@@ -18,8 +18,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -129,23 +127,15 @@ class BrowserActivity : FragmentActivity() {
     private fun authenticate() {
         if(authenticating || isFinishing || isDestroyed) return
         authenticating = true
-        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        // On API 26–29 the compat prompt supports weak biometrics plus device credential.
-        val allowed = if(Build.VERSION.SDK_INT >= 30) authenticators else BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        if(BiometricManager.from(this).canAuthenticate(allowed) != BiometricManager.BIOMETRIC_SUCCESS) {
-            toast("Set a device screen lock or enroll biometrics before opening this protected app"); finish(); return
-        }
-        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                authenticating = false
-                if(isFinishing || isDestroyed) return
-                if(!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) { locked = true; return }
+        DeviceAuth.verify(this, "Unlock ${app.name}", failure = {
+            authenticating = false; finish()
+        }) {
+            authenticating = false
+            if(!isFinishing && !isDestroyed) {
                 locked = false
                 if(browserOpened) { web?.visibility = View.VISIBLE; web?.onResume(); deliverSelection() } else openBrowser()
             }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { authenticating = false; toast(errString.toString()); finish() }
-        })
-        prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("Unlock ${app.name}").setAllowedAuthenticators(allowed).build())
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -209,7 +199,7 @@ class BrowserActivity : FragmentActivity() {
                 val scheme = request.url.scheme
                 if(scheme !in listOf("http", "https")) {
                     if(request.isForMainFrame && request.hasGesture() && scheme in listOf("mailto", "tel", "sms", "geo")) {
-                        confirm("Open another app?", request.url.toString()) { runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }.onFailure { toast("No application can open this link") } }
+                        confirm("Open another app?", request.url.toString(), website = true) { runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }.onFailure { toast("No application can open this link") } }
                     }
                     return true
                 }
@@ -252,6 +242,10 @@ class BrowserActivity : FragmentActivity() {
             }
         }
         view.webChromeClient = object : WebChromeClient() {
+            override fun onJsAlert(v: WebView, url: String, message: String, result: JsResult): Boolean { pageMessage(url, message, result); return true }
+            override fun onJsConfirm(v: WebView, url: String, message: String, result: JsResult): Boolean { pageMessage(url, message, result); return true }
+            override fun onJsPrompt(v: WebView, url: String, message: String, defaultValue: String?, result: JsPromptResult): Boolean { pageMessage(url, message, result, defaultValue.orEmpty()); return true }
+            override fun onJsBeforeUnload(v: WebView, url: String, message: String, result: JsResult): Boolean { pageMessage(url, message, result); return true }
             override fun onProgressChanged(v: WebView, newProgress: Int) { loadingProgress = newProgress }
             override fun onShowFileChooser(v: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 if(chooserInFlight || locked) { callback.onReceiveValue(null); return true }
@@ -278,13 +272,13 @@ class BrowserActivity : FragmentActivity() {
             }
             override fun onPermissionRequestCanceled(request: PermissionRequest) { dismissRequests() }
             override fun onShowCustomView(v: View, callback: CustomViewCallback) {
-                if(customView != null) { callback.onCustomViewHidden(); return }
+                if(customView != null || locked || lifecycle.currentState != Lifecycle.State.RESUMED || isFinishing) { callback.onCustomViewHidden(); return }
                 customView = v; customCallback = callback
                 addContentView(v, FrameLayout.LayoutParams(-1, -1)); immersive(true)
             }
             override fun onHideCustomView() { hideVideo() }
             override fun onCreateWindow(v: WebView, isDialog: Boolean, isUserGesture: Boolean, message: android.os.Message): Boolean {
-                if(!app.popups || !isUserGesture) return false
+                if(!app.popups || !isUserGesture || !canShowPageUi()) return false
                 popup?.destroy()
                 val child = WebView(this@BrowserActivity)
                 if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
@@ -305,7 +299,7 @@ class BrowserActivity : FragmentActivity() {
                     }
                     override fun shouldOverrideUrlLoading(w: WebView, request: WebResourceRequest): Boolean {
                         val target = request.url.toString()
-                        if(request.url.scheme in listOf("https", "http")) confirm("Open pop-up in this app?", target) { navigate(target) }
+                        if(request.url.scheme in listOf("https", "http")) confirm("Open pop-up in this app?", target, website = true) { navigate(target) }
                         w.post { w.destroy(); if(popup === w) popup = null }; return true
                     }
                 }
@@ -313,8 +307,9 @@ class BrowserActivity : FragmentActivity() {
             }
         }
         view.setDownloadListener { url, agent, disposition, mime, _ ->
+            if(!canShowPageUi()) return@setDownloadListener
             if(Uri.parse(url).scheme !in listOf("https", "http")) toast("Blob/data downloads are not supported. Use the website's direct download link.")
-            else confirm("Download file?", URLUtil.guessFileName(url, disposition, mime)) {
+            else confirm("Download file?", URLUtil.guessFileName(url, disposition, mime), website = true) {
                 val action = { download(url, agent, disposition, mime) }
                 if(Build.VERSION.SDK_INT <= 28) requestRuntime(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)) { if(it) action() } else action()
             }
@@ -366,7 +361,7 @@ class BrowserActivity : FragmentActivity() {
                                     DropdownMenuItem(text = { Text(tr("Zoom in", "بزرگ‌نمایی")) }, onClick = { menu = false; web?.zoomIn() }, enabled = app.zoom)
                                     DropdownMenuItem(text = { Text(tr("Zoom out", "کوچک‌نمایی")) }, onClick = { menu = false; web?.zoomOut() }, enabled = app.zoom)
                                     DropdownMenuItem(text = { Text(tr("Hide controls", "مخفی‌کردن کنترل‌ها")) }, onClick = { menu = false; toolbar = false })
-                                    DropdownMenuItem(text = { Text(tr("Open externally", "بازکردن در مرورگر دیگر")) }, onClick = { menu = false; runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl))) }.onFailure { toast("No browser installed") } })
+                                    DropdownMenuItem(text = { Text(tr("Open externally", "بازکردن در مرورگر دیگر")) }, onClick = { menu = false; openExternalBrowser() })
                                 }
                             }
                         })
@@ -401,7 +396,12 @@ class BrowserActivity : FragmentActivity() {
             .onSuccess { web?.loadUrl(it) }
             .onFailure { toast("This website link is not supported") }
     }
-    private fun reloadPage() { if(web?.url == ERROR_PAGE) web?.loadUrl(retryUrl ?: app.url) else web?.reload() }
+    private fun reloadPage() { if(web?.url == ERROR_PAGE) navigate(retryUrl ?: app.url) else web?.reload() }
+    private fun openExternalBrowser() {
+        val target = if(web?.url == ERROR_PAGE) retryUrl ?: app.url else currentUrl.ifBlank { app.url }
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UrlPolicy.normalize(target, app.httpsOnly)))) }
+            .onFailure { toast("Cannot open this page in another browser") }
+    }
 
     private fun cookies(): CookieManager = if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.cookieManager ?: CookieManager.getInstance() else CookieManager.getInstance()
     private fun clearData(done: () -> Unit = {}) {
@@ -418,7 +418,7 @@ class BrowserActivity : FragmentActivity() {
         }
     }
     private fun askWebsite(message: String, permissions: Array<String>, anyOf: Boolean = false, callback: (Boolean) -> Unit) {
-        if(isFinishing || isDestroyed || locked || websiteDialogs.isNotEmpty() || permissionGate.busy) { callback(false); return }
+        if(!canShowPageUi()) { callback(false); return }
         val generation = pageGeneration
         var completed = false
         var handedOff = false
@@ -445,11 +445,32 @@ class BrowserActivity : FragmentActivity() {
         websiteDialogs.toList().forEach { it.dismiss() }
         permissionGate.cancel()
     }
-    private fun confirm(title: String, message: String, yes: () -> Unit) {
-        showDialog(android.app.AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton(android.R.string.ok) { _, _ -> yes() }.setNegativeButton(android.R.string.cancel, null))
+    private fun canShowPageUi() = !locked && !isFinishing && !isDestroyed && lifecycle.currentState == Lifecycle.State.RESUMED && websiteDialogs.isEmpty() && !permissionGate.busy
+    private fun pageMessage(url: String, message: String, result: JsResult, defaultValue: String = "") {
+        if(!canShowPageUi()) { runCatching { result.cancel() }; return }
+        val input = if(result is JsPromptResult) android.widget.EditText(this).apply {
+            filters = arrayOf(android.text.InputFilter.LengthFilter(4096)); setText(defaultValue.take(4096))
+        } else null
+        var resolved = false
+        fun complete(yes: Boolean) {
+            if(resolved) return
+            resolved = true
+            runCatching { if(!yes) result.cancel() else if(result is JsPromptResult) result.confirm(input?.text?.toString().orEmpty()) else result.confirm() }
+        }
+        val builder = android.app.AlertDialog.Builder(this).setTitle("Website · ${Uri.parse(url).host ?: "page"}")
+            .setMessage(message.take(4096)).setPositiveButton(android.R.string.ok) { _, _ -> complete(true) }
+            .setNegativeButton(android.R.string.cancel) { _, _ -> complete(false) }
+        if(input != null) builder.setView(input)
+        websiteDialogs.add(showDialog(builder) { complete(false) })
+    }
+    private fun confirm(title: String, message: String, website: Boolean = false, yes: () -> Unit) {
+        if(website && !canShowPageUi()) return
+        val dialog = showDialog(android.app.AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton(android.R.string.ok) { _, _ -> yes() }.setNegativeButton(android.R.string.cancel, null))
+        if(website) websiteDialogs.add(dialog)
     }
     private fun showDialog(builder: android.app.AlertDialog.Builder, onDismiss: () -> Unit = {}): android.app.AlertDialog {
         val dialog = builder.create()
+        if(::app.isInitialized && (app.lock || temporary)) dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         dialogs.add(dialog)
         dialog.setOnDismissListener { dialogs.remove(dialog); websiteDialogs.remove(dialog); onDismiss() }
         dialog.show()
@@ -474,7 +495,14 @@ class BrowserActivity : FragmentActivity() {
             if(enabled) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
         }
     }
-    private fun hideVideo() { (customView?.parent as? android.view.ViewGroup)?.removeView(customView); customView = null; customCallback?.onCustomViewHidden(); customCallback = null; if(::app.isInitialized) immersive(app.fullscreen) }
+    private fun hideVideo() {
+        val view = customView; val callback = customCallback
+        // Native video callbacks may reenter onHideCustomView during teardown.
+        customView = null; customCallback = null
+        (view?.parent as? android.view.ViewGroup)?.removeView(view)
+        callback?.onCustomViewHidden()
+        if(::app.isInitialized) immersive(app.fullscreen)
+    }
     private fun toast(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     private fun deliverSelection() {
         if(!selectionReady || locked) return
@@ -483,14 +511,20 @@ class BrowserActivity : FragmentActivity() {
     }
     override fun onPause() { web?.onPause(); super.onPause() }
     override fun onStop() {
+        websiteDialogs.toList().forEach { it.dismiss() }
         if(::app.isInitialized && app.lock && browserOpened && !isChangingConfigurations) {
-            locked = true; web?.visibility = View.INVISIBLE; hideVideo(); dismissRequests()
+            locked = true; web?.visibility = View.INVISIBLE; hideVideo()
+            dialogs.toList().forEach { it.dismiss() }; dismissRequests()
         }
         super.onStop()
     }
     override fun onResume() {
         super.onResume()
-        if(locked) authenticate() else web?.onResume()
+        if(locked) window.decorView.post {
+            // FragmentActivity is only STARTED inside onResume. Launching the
+            // legacy credential Activity there can immediately cancel its result.
+            if(lifecycle.currentState == Lifecycle.State.RESUMED && locked && !isFinishing) authenticate()
+        } else web?.onResume()
     }
     override fun onDestroy() {
         dialogs.toList().forEach { it.dismiss() }; dialogs.clear()
