@@ -1,0 +1,10 @@
+# Minimal offline seed; Settings > Privacy downloads maintained StevenBlack hosts.
+0.0.0.0 doubleclick.net
+0.0.0.0 googleadservices.com
+0.0.0.0 googlesyndication.com
+0.0.0.0 google-analytics.com
+0.0.0.0 scorecardresearch.com
+0.0.0.0 adsrvr.org
+0.0.0.0 adnxs.com
+0.0.0.0 taboola.com
+0.0.0.0 outbrain.com
