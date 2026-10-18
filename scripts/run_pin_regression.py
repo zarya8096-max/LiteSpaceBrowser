@@ -21,6 +21,16 @@ if sdk != "26":
 if adb("shell", "getprop", "ro.kernel.qemu").stdout.strip() != "1":
     sys.exit("Refusing to change credentials on a non-emulator device")
 
+# connectedDebugAndroidTest uninstalls its packages during cleanup. Reinstall
+# the already-built matching APKs before invoking instrumentation directly.
+for apk in (Path("app/build/outputs/apk/debug/app-debug.apk"),
+            Path("app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")):
+    if not apk.is_file():
+        sys.exit(f"Missing built APK: {apk}")
+    install = adb("install", "-r", str(apk), timeout=300)
+    if install.returncode or "Success" not in install.stdout:
+        sys.exit("Could not install credential regression APK: " + install.stdout + install.stderr)
+
 pin = str(100000 + secrets.randbelow(900000))
 setup = adb("shell", "locksettings", "set-pin", pin)
 if setup.returncode or "set to" not in setup.stdout.lower():
