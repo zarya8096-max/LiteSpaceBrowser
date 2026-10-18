@@ -51,8 +51,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Gradle 8.10.2 is pinned by the included wrapper. The debug APK uses a development
 signing key and is suitable for evaluation; debug apps are not a production release.
-Download the [latest published build](https://github.com/zarya8096-max/LiteSpaceBrowser/releases).
-The 1.2 source adds the [officially compared Premium feature categories](docs/HERMIT-COMPARISON.md).
+Download [version 1.2.0](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/tag/v1.2.0):
+[debug APK](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/download/v1.2.0/LiteSpaceBrowser-1.2.0-debug.apk),
+[R8 evaluation APK](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/download/v1.2.0/LiteSpaceBrowser-1.2.0-release-evaluation.apk),
+[source project ZIP](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/download/v1.2.0/LiteSpaceBrowser-1.2.0-source.zip).
+Both APKs use the same development certificate; the R8 APK is smaller but is also
+an evaluation build. Checksums accompany the release.
+The 1.2 release includes the [officially compared Premium feature categories](docs/HERMIT-COMPARISON.md).
 See the [interface redesign](docs/DESIGN.md) and [deep debugging report](docs/DEBUGGING.md) for the security, data-integrity
 and lifecycle corrections in this version.
 
@@ -80,7 +85,7 @@ A release signed with your key cannot update the differently signed debug app; e
 configuration before uninstalling it. For Play distribution, produce and sign an AAB
 and complete current store privacy/permission requirements separately.
 
-See the [verification history](docs/VERIFICATION.md) and [testing instructions](docs/TESTING.md).
+See the [1.2 verification record](docs/VERIFICATION-1.2.md), [verification history](docs/VERIFICATION.md) and [testing instructions](docs/TESTING.md).
 Each release must list its actual completed checks; earlier results do not certify new features.
 
 ## Structure and testing
