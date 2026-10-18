@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -43,7 +44,7 @@ import org.litespace.browser.domain.LiteApp
     val visible = remember(apps, query, favorites, group) { apps.filter {
         (!favorites || it.favorite) && (group == null || it.group == group) && "${it.name} ${it.url} ${it.group}".contains(query.trim(), true)
     }.sortedWith(compareByDescending<LiteApp> { it.favorite }.thenBy { it.name.lowercase() }) }
-    LazyVerticalGrid(columns = GridCells.Adaptive(152.dp), modifier = modifier.fillMaxSize(),
+    LazyVerticalGrid(columns = GridCells.Adaptive(152.dp), modifier = modifier.fillMaxSize().testTag("collection"),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 100.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -104,7 +105,7 @@ import org.litespace.browser.domain.LiteApp
         }
         items(visible, key = { it.id }) { app ->
             var menu by remember { mutableStateOf(false) }
-            Card(onClick = { onOpen(app) }, modifier = Modifier.fillMaxWidth().animateItem(), shape = RoundedCornerShape(26.dp),
+            Card(onClick = { onOpen(app) }, modifier = Modifier.fillMaxWidth().testTag("lite-app-${app.id}").animateItem(), shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

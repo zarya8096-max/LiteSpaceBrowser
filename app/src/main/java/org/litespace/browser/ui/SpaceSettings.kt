@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -46,7 +47,7 @@ import org.litespace.browser.data.Preferences
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun SettingsScreen(prefs: Preferences, modifier: Modifier, onTheme: (String) -> Unit, onLanguage: (String) -> Unit,
     onDynamic: (Boolean) -> Unit, onPrivacy: () -> Unit, onBackup: () -> Unit) {
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    LazyColumn(modifier.fillMaxSize().testTag("settings"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { PageIntro(tr("PERSONALIZE", "به سلیقهٔ شما"), tr("Make it feel\nlike you.", "فضایی شبیه\nخودتان."), tr("A few thoughtful choices for your everyday space.", "چند انتخاب ساده برای فضای هر روزتان.")) }
         item { SettingsPanel(tr("Appearance", "ظاهر"), tr("Choose the light that feels right.", "روشنایی مناسب خودتان را انتخاب کنید.")) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
