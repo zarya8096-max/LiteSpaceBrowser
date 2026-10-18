@@ -19,8 +19,8 @@ class PremiumPoliciesTest {
         assertTrue(runCatching { NativeTemplates.expand("javascript:alert(%s)", "x") }.isFailure)
     }
     @Test fun multipleHostsPerLineAndTagMembership() {
-        val rules = HostRules(HostRules.parse("0.0.0.0 ad.example tracker.example # both\n::1 bad.example\n127.0.0.1 localhost"))
-        assertTrue(rules.blocks("image.tracker.example")); assertTrue(rules.blocks("bad.example")); assertFalse(rules.blocks("nottracker.example"))
+        val rules = HostRules(HostRules.parse("0.0.0.0 ad.example tracker.example # both\n::1 bad.example\n192.0.2.2 another.example\n127.0.0.1 localhost"))
+        assertTrue(rules.blocks("another.example")); assertTrue(rules.blocks("image.tracker.example")); assertTrue(rules.blocks("bad.example")); assertFalse(rules.blocks("nottracker.example"))
         val app = LiteApp(tags = "Work, News, Work,  ")
         assertEquals(listOf("Work", "News"), app.tagNames())
     }

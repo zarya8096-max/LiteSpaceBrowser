@@ -94,7 +94,7 @@ class ToolsActivity : FragmentActivity() {
     fun work(block: suspend () -> String) { scope.launch { try { snack.showSnackbar(block()) } catch(e: CancellationException) { throw e } catch(e: Exception) { snack.showSnackbar(e.message ?: "Failed") } } }
     val labels = mapOf("script" to label("Scripts", "اسکریپت‌ها"), "list" to label("Block lists", "فهرست‌های فیلتر"), "bookmark" to label("Bookmarks", "نشانک‌ها"), "feed" to label("RSS / Atom", "RSS / Atom"), "monitor" to label("Web monitors", "پایش صفحات"))
     Scaffold(topBar = { TopAppBar(title = { Text(label("Browser tools", "ابزارهای مرورگر")) }, navigationIcon = { TextButton(onClick = back) { Text(label("Back", "بازگشت")) } }) }, snackbarHost = { SnackbarHost(snack) }, floatingActionButton = {
-        ExtendedFloatingActionButton(onClick = { model.edit(ToolRecord(kind = kind, title = "", appId = appId)) }) { Text(label("Add", "افزودن")) }
+        ExtendedFloatingActionButton(onClick = { model.edit(ToolRecord(kind = kind, title = "", appId = if(kind in setOf("script", "list")) "" else appId)) }) { Text(label("Add", "افزودن")) }
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp, 12.dp, 20.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { labels.forEach { (id, label) -> FilterChip(kind == id, { kind = id }, label = { Text(label) }) } } }
@@ -111,7 +111,7 @@ class ToolsActivity : FragmentActivity() {
                 TextButton(onClick = { val id = appId.ifBlank { apps.firstOrNull()?.id.orEmpty() }; if(id.isNotBlank()) context.startActivity(Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "site-$id")) }) { Text(label("Android notification settings", "تنظیمات اعلان اندروید")) }
             } }
             if(kind == "script") item { Text(label("Scripts are shared definitions. Enable them per Lite App in its editor. Automatic scripts are restricted to that app's configured origin. Manual scripts run only after you select and confirm them in the browser.", "تعریف اسکریپت‌ها مشترک است؛ در ویرایشگر هر برنامه فعالشان کنید. اجرای خودکار به مبدأ همان برنامه محدود است. اجرای دستی فقط با انتخاب و تأیید شما در مرورگر انجام می‌شود.")) }
-            val visible = records.filter { it.kind == kind && (appId.isBlank() || it.appId.isBlank() || it.appId == appId) }
+            val visible = records.filter { it.kind == kind && (kind in setOf("script", "list") || appId.isBlank() || it.appId.isBlank() || it.appId == appId) }
             if(visible.isEmpty()) item { Text(label("No entries yet. Add your own.", "هنوز موردی نیست؛ مورد جدید اضافه کنید.")) }
             items(visible, key = { it.id }) { record ->
                 SettingsPanel(record.title) {

@@ -72,7 +72,10 @@ class HostRules(private val hosts: Set<String>) {
         fun parse(text: String): Set<String> = text.lineSequence().map { it.substringBefore('#').trim() }
             .filter { it.isNotEmpty() }.flatMap { line ->
                 val parts = line.split(Regex("\\s+"))
-                (if(parts.size > 1 && parts[0] in setOf("0.0.0.0", "127.0.0.1", "::1")) parts.drop(1) else if(parts.size == 1) parts else emptyList()).asSequence()
+                val address = parts[0]
+                val ip = if(':' in address) runCatching { URI("http://[$address]").host != null }.getOrDefault(false)
+                    else address.split('.').let { values -> values.size == 4 && values.all { it.toIntOrNull() in 0..255 } }
+                (if(parts.size > 1 && ip) parts.drop(1) else if(parts.size == 1) parts else emptyList()).asSequence()
             }.map { it.lowercase(java.util.Locale.ROOT) }.filter {
                 it.contains('.') && it.matches(Regex("[a-z0-9.-]+")) && it != "localhost.localdomain" && !it.matches(Regex("[0-9.]+"))
             }.toSet()
