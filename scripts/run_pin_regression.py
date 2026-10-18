@@ -41,6 +41,8 @@ success = (result.returncode == 0 and "OK (1 test)" in result.stdout
            and "INSTRUMENTATION_STATUS_CODE: -4" not in result.stdout
            and "FAILURES!!!" not in result.stdout and cleanup.returncode == 0 and "cleared" in cleanup.stdout.lower())
 if not success:
-    print("::error title=Device PIN regression::Credential reopen regression failed; see attached PIN result log.")
+    details = (result.stdout + result.stderr)[-8000:].replace(pin, "[test PIN]")
+    details = details.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print("::error title=Device PIN regression::Credential reopen regression failed. " + details)
     sys.exit(1)
 print("::notice title=Device PIN regression::1 passed; real Android credential confirmation before and after Home; original WebView preserved.")
