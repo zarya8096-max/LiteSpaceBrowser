@@ -5,6 +5,18 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import org.litespace.browser.domain.UrlPolicy
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -21,6 +33,7 @@ import kotlinx.coroutines.withContext
 import org.litespace.browser.util.IconImages
 import org.litespace.browser.domain.LiteApp
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable fun AppEditor(app: LiteApp, modifier: Modifier = Modifier, onChange: (LiteApp) -> Unit, onSave: (LiteApp) -> Unit) {
     val latestApp by rememberUpdatedState(app)
     var iconError by remember { mutableStateOf("") }
@@ -42,15 +55,34 @@ import org.litespace.browser.domain.LiteApp
             readingIcon = false
         }
     }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) { AppIcon(app); OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !readingIcon) { Text(tr("Choose icon", "انتخاب آیکون")) }; if(app.icon.isNotEmpty()) TextButton(onClick = { onChange(app.copy(icon = "")) }) { Text(tr("Reset", "بازنشانی")) } }
+    val validUrl = remember(app.url, app.httpsOnly) { app.url.isNotBlank() && runCatching { UrlPolicy.normalize(app.url, app.httpsOnly) }.isSuccess }
+    Box(modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Surface(shape = RoundedCornerShape(26.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                AppIcon(app.copy(name = app.name.ifBlank { "L" }), 60.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(app.name.ifBlank { tr("Your next favorite", "برنامهٔ محبوب بعدی شما") }, style = MaterialTheme.typography.titleLarge, maxLines = 2)
+                    Text(tr("A little app. A space of its own.", "برنامه‌ای سبک، با فضایی مخصوص خود."), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        SettingsPanel(tr("The essentials", "اطلاعات اصلی")) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !readingIcon) { Text(if(readingIcon) tr("Loading…", "در حال بارگذاری…") else tr("Choose icon", "انتخاب آیکون")) }
+            if(app.icon.isNotEmpty()) TextButton(onClick = { onChange(app.copy(icon = "")) }) { Text(tr("Reset", "بازنشانی")) }
+        }
         if(iconError.isNotEmpty()) Text(iconError, color = MaterialTheme.colorScheme.error)
         Field(tr("Name", "نام"), app.name, limit = 100) { onChange(app.copy(name = it)) }
-        Field(tr("Website URL", "نشانی وب‌سایت"), app.url, limit = 8192) { onChange(app.copy(url = it)) }
+        Field(tr("Website URL", "نشانی وب‌سایت"), app.url, limit = 8192, keyboard = KeyboardType.Uri) { onChange(app.copy(url = it)) }
+        if(app.url.isNotBlank() && !validUrl) Text(tr("Enter a valid website address, such as example.com", "نشانی معتبر وارد کنید؛ مانند example.com"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        SettingsPanel(tr("Make it yours", "به سلیقهٔ خودتان")) {
         Field(tr("Group", "گروه"), app.group, limit = 100) { onChange(app.copy(group = it)) }
         Toggle(tr("Favorite", "برگزیده"), app.favorite) { onChange(app.copy(favorite = it)) }
         Text(tr("Accent color", "رنگ برنامه"), style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0xFF526849, 0xFF375F90, 0xFF85546D, 0xFF885B26).forEach { color -> FilterChip(selected = app.accent == color, onClick = { onChange(app.copy(accent = color)) }, label = { Text(if(app.accent == color) "✓" else "●", color = androidx.compose.ui.graphics.Color(color)) }) } }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0xFF526849, 0xFF375F90, 0xFF85546D, 0xFF885B26).forEach { color -> FilterChip(selected = app.accent == color, onClick = { onChange(app.copy(accent = color)) }, label = { Text(if(app.accent == color) "✓" else "●", color = androidx.compose.ui.graphics.Color(color)) }) } }
+        }
         Section(tr("Display & navigation", "نمایش و پیمایش")) {
             Toggle(tr("Immersive fullscreen", "تمام‌صفحه"), app.fullscreen) { onChange(app.copy(fullscreen = it)) }
             Toggle(tr("Show navigation toolbar", "نمایش نوار پیمایش"), app.navigation) { onChange(app.copy(navigation = it)) }
@@ -83,20 +115,42 @@ import org.litespace.browser.domain.LiteApp
             Field(tr("Custom CSS", "CSS سفارشی"), app.css, false) { onChange(app.copy(css = it)) }
             Field(tr("Custom JavaScript", "جاوااسکریپت سفارشی"), app.script, false) { onChange(app.copy(script = it)) }
         }
-        Button(onClick = { onSave(app) }, modifier = Modifier.fillMaxWidth(), enabled = !readingIcon && app.name.isNotBlank() && app.url.isNotBlank()) { Text(tr("Save Lite App", "ذخیره برنامه سبک")) }
-        Spacer(Modifier.height(24.dp))
+    }
+    Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp, shadowElevation = 8.dp) {
+        Button(onClick = { onSave(latestApp) }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp).fillMaxWidth().heightIn(min = 54.dp), enabled = !readingIcon && app.name.isNotBlank() && validUrl) {
+            Icon(Icons.Default.Check, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(tr("Save Lite App", "ذخیره برنامه سبک"))
+        }
+    }
     }
 }
-@Composable private fun Field(label: String, value: String, single: Boolean = true, limit: Int = 64000, change: (String) -> Unit) {
-    OutlinedTextField(value, { change(it.take(limit)) }, label = { Text(label) }, singleLine = single, minLines = if(single) 1 else 4, modifier = Modifier.fillMaxWidth())
+@Composable private fun Field(label: String, value: String, single: Boolean = true, limit: Int = 64000, keyboard: KeyboardType = KeyboardType.Text, change: (String) -> Unit) {
+    OutlinedTextField(value, { change(it.take(limit)) }, label = { Text(label) }, singleLine = single, minLines = if(single) 1 else 5,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard, autoCorrectEnabled = keyboard != KeyboardType.Uri && single),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = if(keyboard == KeyboardType.Uri || !single) TextDirection.Ltr else TextDirection.Content,
+            fontFamily = if(!single) FontFamily.Monospace else FontFamily.Default),
+        shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant))
 }
-@Composable private fun Toggle(label: String, checked: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f)); Switch(checked, change) }
+@Composable internal fun Toggle(label: String, checked: Boolean, description: String? = null, change: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = change).padding(vertical = 8.dp).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        Switch(checked, onCheckedChange = null)
+    }
 }
 @Composable private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) { Text("$title ${if(expanded) "−" else "+"}", style = MaterialTheme.typography.titleMedium) }
-        androidx.compose.animation.AnimatedVisibility(expanded) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content) }
+    val state = if(expanded) tr("Expanded", "باز") else tr("Collapsed", "بسته")
+    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+        Column {
+            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).semantics { stateDescription = state }, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)) {
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Icon(if(expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null)
+            }
+            androidx.compose.animation.AnimatedVisibility(expanded) {
+                Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+            }
+        }
     }
 }

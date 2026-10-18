@@ -57,6 +57,9 @@ class EditorStateDeviceTest {
                     assertTrue("Large icons/code must stay out of Binder saved state: ${bundleBytes.get()} bytes", bundleBytes.get() < 200_000)
                 }
                 device.wait(Until.findObject(By.desc(Pattern.compile("Back|بازگشت"))), 30_000)!!.click()
+                val discard = device.wait(Until.findObject(By.text(Pattern.compile("Discard changes|کنار گذاشتن تغییرات"))), 30_000)
+                assertNotNull("Unsaved edits require an explicit discard confirmation", discard)
+                discard!!.click()
                 // Input injection can return before Compose handles the click,
                 // especially on software-rendered emulators. Await the actual
                 // state transition instead of racing the event queue.

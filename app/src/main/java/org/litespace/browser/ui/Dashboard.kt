@@ -22,6 +22,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
@@ -45,7 +49,7 @@ import androidx.fragment.app.FragmentActivity
     val prefs by model.preferences.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf("home") }
     var editing by model.editor
-    var query by rememberSaveable { mutableStateOf("") }
+        var confirmDiscard by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<LiteApp?>(null) }
     var restoreText by remember { mutableStateOf<String?>(null) }
     val snack = remember { SnackbarHostState() }
@@ -85,72 +89,69 @@ import androidx.fragment.app.FragmentActivity
     }
     LaunchedEffect(model) { model.messages.collect { snack.showSnackbar(it) } }
     LaunchedEffect(screen, editing == null) { if(screen == "edit" && editing == null) screen = "home" }
-    BackHandler(screen != "home") { screen = "home"; editing = null }
-    Scaffold(snackbarHost = { SnackbarHost(snack) }, topBar = {
-        TopAppBar(title = { Text(when(screen) { "edit" -> tr("App configuration", "تنظیمات برنامه"); "settings" -> tr("Settings", "تنظیمات"); "privacy" -> tr("Privacy", "حریم خصوصی"); "backup" -> tr("Backup & restore", "پشتیبان‌گیری و بازیابی"); else -> "LiteSpace" }) },
-            navigationIcon = { if(screen != "home") IconButton(onClick = { editing = null; screen = "home" }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
-            actions = { if(screen == "home") IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) } })
-    }, floatingActionButton = {
-        if(screen == "home") ExtendedFloatingActionButton(onClick = { editing = LiteApp(); screen = "edit" }, modifier = Modifier.semantics { contentDescription = createLabel }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(createLabel) })
-    }) { padding ->
-        when(screen) {
-            "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding), onChange = { editing = it }, onSave = { model.save(it) { editing = null; screen = "home" } }) }
-            "settings" -> Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(tr("Make space for what matters.", "فضایی برای آنچه مهم است."), style = MaterialTheme.typography.headlineSmall)
-                Text(tr("Appearance", "ظاهر"), style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("system", "light", "dark").forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { model.theme(mode) }, label = { Text(when(mode) { "light" -> tr("Light", "روشن"); "dark" -> tr("Dark", "تیره"); else -> tr("System", "سیستم") }) }) } }
-                Text(tr("Language", "زبان"))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(prefs.language == "en", { model.language("en") }, label = { Text("English") }); FilterChip(prefs.language == "fa", { model.language("fa") }, label = { Text("فارسی") }) }
-                FilledTonalButton(onClick = { screen = "privacy" }, modifier = Modifier.fillMaxWidth()) { Text(tr("Privacy dashboard", "داشبورد حریم خصوصی")) }
-                FilledTonalButton(onClick = { screen = "backup" }, modifier = Modifier.fillMaxWidth()) { Text(tr("Backup & restore", "پشتیبان‌گیری و بازیابی")) }
-                Text(tr("Open source. No analytics. No subscriptions.", "متن‌باز. بدون آمارگیری. بدون اشتراک."))
-            }
-            "privacy" -> LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item { Text(tr("Your browsing stays yours", "مرور شما متعلق به شماست"), style = MaterialTheme.typography.headlineMedium) }
-                item { Text(tr("${blocking.domains} blocked domains • ${blocking.requests} requests blocked this process", "${blocking.domains} دامنه مسدود • ${blocking.requests} درخواست مسدود در این اجرا")) }
-                item { Button(onClick = model::updateFilters) { Text(tr("Update StevenBlack filters", "به‌روزرسانی فیلترهای StevenBlack")) } }
-                item { Text(tr("Domain blocking only: no cosmetic filtering. Updates contact raw.githubusercontent.com. Some ads and first-party tracking cannot be blocked.", "فقط مسدودسازی دامنه؛ بدون فیلتر ظاهری. به‌روزرسانی به raw.githubusercontent.com متصل می‌شود. همه تبلیغات و ردیاب‌ها قابل مسدودسازی نیستند.")) }
-                item { Text(if(runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }.getOrDefault(false)) tr("Isolated WebView profiles are supported on this device. Apps use separate profiles by default; matching profile names deliberately share sessions.", "پروفایل‌های جدا پشتیبانی می‌شوند. برنامه‌ها به‌طور پیش‌فرض جدا هستند؛ نام پروفایل یکسان نشست مشترک ایجاد می‌کند.") else tr("This WebView shares cookies and website storage across apps. Incognito is unavailable. Update Android System WebView for profile support. Clearing data affects every app.", "این WebView کوکی و داده سایت را بین برنامه‌ها به اشتراک می‌گذارد. حالت ناشناس در دسترس نیست. WebView سیستم را به‌روز کنید. پاک‌کردن داده روی همه برنامه‌ها اثر دارد.")) }
-                item { Text(tr("Web push and service-worker notifications are not supported by Android WebView. LiteSpace does not simulate them or poll websites in the background. Downloads use Android Download Manager notifications.", "اعلان وب و سرویس‌ورکر در WebView اندروید پشتیبانی نمی‌شوند. برنامه آن‌ها را شبیه‌سازی نمی‌کند و در پس‌زمینه سایت‌ها را بررسی نمی‌کند. اعلان دانلود از مدیریت دانلود اندروید استفاده می‌کند.")) }
-                item { Text(tr("Private sessions require isolated profiles and full data-clearing support. Browsing data clears on normal close; profile folders are removed on a browser launch after the process restarts. Force-stop can delay cleanup. Downloads remain. Your IP address and network activity are not hidden.", "نشست خصوصی به پروفایل جدا و پاک‌سازی کامل نیاز دارد. داده هنگام خروج عادی پاک می‌شود؛ پوشه پروفایل در اجرای مرورگر پس از راه‌اندازی مجدد فرایند حذف می‌شود. توقف اجباری پاک‌سازی را به تأخیر می‌اندازد. دانلود، نشانی IP و فعالیت شبکه مخفی نمی‌شوند.")) }
-            }
-            "backup" -> Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(tr("Keep your space", "فضای خود را نگه دارید"), style = MaterialTheme.typography.headlineMedium)
-                Text(tr("Exports names, icons, URLs and app settings as plain JSON. Cookies, login sessions and global theme/language are excluded. Custom scripts and URLs can contain secrets; store backups safely.", "نام، آیکون، نشانی و تنظیمات برنامه به صورت JSON ذخیره می‌شود. کوکی، نشست ورود و زبان و ظاهر کلی ذخیره نمی‌شود. اسکریپت و نشانی ممکن است حاوی اطلاعات محرمانه باشد؛ فایل را امن نگه دارید."))
-                Button(onClick = { export.launch("litespace-backup.json") }) { Text(tr("Export backup", "ذخیره پشتیبان")) }
-                OutlinedButton(onClick = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }) { Text(tr("Restore backup", "بازیابی پشتیبان")) }
-            }
-            else -> LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                item { Text(tr("Your web. Your space.", "وب شما. فضای شما."), style = MaterialTheme.typography.headlineLarge) }
-                item { Text(tr("${apps.size} Lite Apps · Less clutter, more focus", "${apps.size} برنامه سبک · ساده‌تر و متمرکزتر"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                item { OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Search apps or groups", "جستجوی برنامه یا گروه")) }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true, shape = RoundedCornerShape(24.dp)) }
-                item { AnimatedVisibility(apps.isEmpty()) { Card { Column(Modifier.padding(24.dp)) { Icon(Icons.Default.Home, null, Modifier.size(48.dp)); Spacer(Modifier.height(16.dp)); Text(tr("A lighter way to browse", "راهی سبک‌تر برای مرور"), style = MaterialTheme.typography.titleLarge); Text(tr("Turn any website into a personal app. Start with a name and a URL.", "هر وب‌سایت را به برنامه شخصی تبدیل کنید. با نام و نشانی شروع کنید.")) } } } }
-                items(apps.filter { "${it.name} ${it.url} ${it.group}".contains(query, true) }, key = { it.id }) { app ->
-                    Card(onClick = { context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", app.id)) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AppIcon(app)
-                            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) { Text(app.name, style = MaterialTheme.typography.titleLarge); Text(app.group.ifBlank { android.net.Uri.parse(app.url).host ?: app.url }, style = MaterialTheme.typography.bodySmall) }
-                            var menu by remember { mutableStateOf(false) }
-                            Box { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("App actions", "عملیات برنامه")) }
-                                DropdownMenu(menu, { menu = false }) {
-                                    DropdownMenuItem(text = { Text(tr("Edit", "ویرایش")) }, onClick = { menu = false; authorizeApp(app) { editing = it; screen = "edit" } })
-                                    DropdownMenuItem(text = { Text(tr("Pin to home screen", "افزودن به صفحه اصلی")) }, onClick = { menu = false; scope.launch { snack.showSnackbar(Shortcuts.pin(context, app)) } })
-                                    DropdownMenuItem(text = { Text(tr("Private session", "نشست خصوصی")) }, onClick = { menu = false; context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", app.id).putExtra("incognito", true)) })
-                                    DropdownMenuItem(text = { Text(tr("Delete", "حذف")) }, onClick = { menu = false; authorizeApp(app) { deleting = it } })
-                                }
-                            }
-                        }
-                    }
-                }
+    fun leaveScreen() {
+        if(screen == "edit" && model.hasDraftChanges()) confirmDiscard = true
+        else { screen = "home"; model.discardDraft() }
+    }
+    BackHandler(screen != "home") { leaveScreen() }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, snackbarHost = { SnackbarHost(snack) }, bottomBar = {
+        if(screen != "edit" && screen != "backup") NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+            listOf(Triple("home", tr("My apps", "برنامه‌ها"), Icons.Default.Home), Triple("privacy", tr("Privacy", "حریم خصوصی"), Icons.Default.Lock), Triple("settings", tr("Settings", "تنظیمات"), Icons.Default.Settings)).forEach { (route, label, icon) ->
+                NavigationBarItem(selected = screen == route, onClick = { screen = route }, icon = { Icon(icon, null) }, label = { Text(label) })
             }
         }
+    }, topBar = {
+        TopAppBar(title = { Text(when(screen) { "edit" -> tr("App configuration", "تنظیمات برنامه"); "settings" -> tr("Settings", "تنظیمات"); "privacy" -> tr("Privacy", "حریم خصوصی"); "backup" -> tr("Backup & restore", "پشتیبان‌گیری و بازیابی"); else -> "LiteSpace" }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+            navigationIcon = { if(screen != "home") IconButton(onClick = { leaveScreen() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
+            actions = { if(screen == "home") IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) } })
+    }, floatingActionButton = {
+        if(screen == "home") ExtendedFloatingActionButton(onClick = { model.beginEditing(LiteApp()); screen = "edit" }, modifier = Modifier.semantics { contentDescription = createLabel }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(createLabel) })
+    }) { padding ->
+        when(screen) {
+            "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding).consumeWindowInsets(padding), onChange = { editing = it }, onSave = { model.save(it) { model.discardDraft(); screen = "home" } }) }
+            "settings" -> SettingsScreen(prefs, Modifier.padding(padding), model::theme, model::language, model::dynamicColors, { screen = "privacy" }, { screen = "backup" })
+            "privacy" -> LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item { PageIntro(tr("PRIVACY, IN PLAIN SIGHT", "حریم خصوصی، روشن و شفاف"), tr("Your browsing\nstays yours.", "مرور شما،\nمتعلق به شماست."), tr("See what is protected and understand the limits.", "حفاظت‌های فعال و محدودیت‌ها را بشناسید.")) }
+                item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PrivacyStat(localNumber(blocking.domains), tr("Domains in filters", "دامنه در فیلترها"), Modifier.weight(1f))
+                    PrivacyStat(localNumber(blocking.requests.toLong()), tr("Blocked this session", "مسدودشده در این اجرا"), Modifier.weight(1f))
+                } }
+                item { Button(onClick = model::updateFilters, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text(tr("Update StevenBlack filters", "به‌روزرسانی فیلترهای StevenBlack")) } }
+                item { SettingsPanel(tr("Content blocking", "مسدودسازی محتوا")) { Text(tr("Domain blocking only: no cosmetic filtering. Updates contact raw.githubusercontent.com. Some ads and first-party tracking cannot be blocked.", "فقط مسدودسازی دامنه؛ بدون فیلتر ظاهری. به‌روزرسانی به raw.githubusercontent.com متصل می‌شود. همه تبلیغات و ردیاب‌ها قابل مسدودسازی نیستند.")) } }
+                item { SettingsPanel(tr("Website storage", "داده‌های وب‌سایت")) { Text(if(runCatching { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) }.getOrDefault(false)) tr("Isolated WebView profiles are supported on this device. Apps use separate profiles by default; matching profile names deliberately share sessions.", "پروفایل‌های جدا پشتیبانی می‌شوند. برنامه‌ها به‌طور پیش‌فرض جدا هستند؛ نام پروفایل یکسان نشست مشترک ایجاد می‌کند.") else tr("This WebView shares cookies and website storage across apps. Incognito is unavailable. Update Android System WebView for profile support. Clearing data affects every app.", "این WebView کوکی و داده سایت را بین برنامه‌ها به اشتراک می‌گذارد. حالت ناشناس در دسترس نیست. WebView سیستم را به‌روز کنید. پاک‌کردن داده روی همه برنامه‌ها اثر دارد.")) } }
+                item { SettingsPanel(tr("Notifications", "اعلان‌ها")) { Text(tr("Web push and service-worker notifications are not supported by Android WebView. LiteSpace does not simulate them or poll websites in the background. Downloads use Android Download Manager notifications.", "اعلان وب و سرویس‌ورکر در WebView اندروید پشتیبانی نمی‌شوند. برنامه آن‌ها را شبیه‌سازی نمی‌کند و در پس‌زمینه سایت‌ها را بررسی نمی‌کند. اعلان دانلود از مدیریت دانلود اندروید استفاده می‌کند.")) } }
+                item { SettingsPanel(tr("Private sessions", "نشست‌های خصوصی")) { Text(tr("Private sessions require isolated profiles and full data-clearing support. Browsing data clears on normal close; profile folders are removed on a browser launch after the process restarts. Force-stop can delay cleanup. Downloads remain. Your IP address and network activity are not hidden.", "نشست خصوصی به پروفایل جدا و پاک‌سازی کامل نیاز دارد. داده هنگام خروج عادی پاک می‌شود؛ پوشه پروفایل در اجرای مرورگر پس از راه‌اندازی مجدد فرایند حذف می‌شود. توقف اجباری پاک‌سازی را به تأخیر می‌اندازد. دانلود، نشانی IP و فعالیت شبکه مخفی نمی‌شوند.")) } }
+            }
+            "backup" -> BackupScreen(Modifier.padding(padding), apps.size, { export.launch("litespace-backup.json") }, { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })
+            else -> LibraryScreen(apps, Modifier.padding(padding),
+                onOpen = { context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", it.id)) },
+                onEdit = { app -> authorizeApp(app) { model.beginEditing(it); screen = "edit" } },
+                onPin = { app -> scope.launch { snack.showSnackbar(Shortcuts.pin(context, app)) } },
+                onPrivate = { context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", it.id).putExtra("incognito", true)) },
+                onDelete = { app -> authorizeApp(app) { deleting = it } },
+                onCreate = { model.beginEditing(LiteApp()); screen = "edit" })
+        }
     }
+    if(confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false },
+        title = { Text(tr("Discard your changes?", "تغییرات کنار گذاشته شود؟")) },
+        text = { Text(tr("Your changes have not been saved yet.", "تغییرات شما هنوز ذخیره نشده است.")) },
+        confirmButton = { TextButton(onClick = { confirmDiscard = false; model.discardDraft(); screen = "home" }) { Text(tr("Discard changes", "کنار گذاشتن تغییرات"), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(tr("Keep editing", "ادامهٔ ویرایش")) } })
     deleting?.let { app -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(tr("Delete ${app.name}?", "حذف ${app.name}؟")) }, text = { Text(tr("Removes this configuration. Clear its website data in the browser first if needed. Existing shortcuts will no longer open it.", "تنظیمات حذف می‌شود. در صورت نیاز ابتدا داده سایت را در مرورگر پاک کنید. میانبر قبلی دیگر آن را باز نمی‌کند.")) }, confirmButton = { TextButton(onClick = { model.delete(app); deleting = null }) { Text(tr("Delete", "حذف")) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("Cancel", "لغو")) } }) }
     restoreText?.let { text -> AlertDialog(onDismissRequest = { restoreText = null }, title = { Text(tr("Restore app configurations?", "بازیابی تنظیمات برنامه؟")) }, text = { Text(tr("Matching IDs are overwritten; other apps are kept. Only import trusted files: custom JavaScript will run when you open imported apps.", "شناسه‌های یکسان جایگزین و بقیه حفظ می‌شوند. فقط فایل قابل اعتماد وارد کنید؛ جاوااسکریپت سفارشی هنگام بازشدن برنامه اجرا می‌شود.")) }, confirmButton = { TextButton(onClick = { restoreText = null; authorizeBackup("Unlock restore") { scope.launch { runCatching { withContext(Dispatchers.IO) { model.repository.restore(text) } }.onSuccess { snack.showSnackbar("Restored $it apps") }.onFailure { snack.showSnackbar(it.message ?: "Restore failed") } } } }) { Text(tr("Restore", "بازیابی")) } }, dismissButton = { TextButton(onClick = { restoreText = null }) { Text(tr("Cancel", "لغو")) } }) }
 }
 
-@Composable fun AppIcon(app: LiteApp) {
+@Composable fun AppIcon(app: LiteApp, size: Dp = 48.dp) {
     val bitmap = remember(app.icon) { IconImages.decode(app.icon) }
-    if(bitmap != null) Image(bitmap.asImageBitmap(), app.name, Modifier.size(48.dp))
-    else Surface(modifier = Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = androidx.compose.ui.graphics.Color(app.accent)) { Box(contentAlignment = Alignment.Center) { Text(app.name.take(1).uppercase(), color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge) } }
+    if(bitmap != null) Image(bitmap.asImageBitmap(), app.name, Modifier.size(size).clip(RoundedCornerShape(16.dp)))
+    else Surface(modifier = Modifier.size(size).clip(RoundedCornerShape(16.dp)), shape = RoundedCornerShape(14.dp), color = androidx.compose.ui.graphics.Color(app.accent)) { Box(contentAlignment = Alignment.Center) { Text(app.name.trim().takeIf { it.isNotEmpty() }?.let { String(Character.toChars(it.codePointAt(0))).uppercase(java.util.Locale.ROOT) } ?: "L", color = if(androidx.compose.ui.graphics.Color(app.accent).luminance() > .45f) androidx.compose.ui.graphics.Color(0xFF132D21) else androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge) } }
+}
+
+@Composable private fun PrivacyStat(value: String, label: String, modifier: Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(value, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
 }

@@ -19,6 +19,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     // Large drafts (icons + custom code) must never go into an Activity Bundle.
     val editor = mutableStateOf<LiteApp?>(null)
+    private var editorOriginal: LiteApp? = null
+    fun beginEditing(app: LiteApp) { editorOriginal = app; editor.value = app }
+    fun hasDraftChanges() = editor.value != null && editor.value != editorOriginal
+    fun discardDraft() { editor.value = null; editorOriginal = null }
     fun save(app: LiteApp, done: () -> Unit) = viewModelScope.launch {
         runCatching { repository.save(app) }.onSuccess { done() }.onFailure { messages.emit(it.message ?: "Unable to save") }
     }
@@ -27,6 +31,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .onSuccess { if(!Shortcuts.disable(getApplication(), app)) messages.emit("App deleted; launcher shortcut could not be disabled") }
             .onFailure { messages.emit(it.message ?: "Unable to delete") }
     }
+    fun dynamicColors(value: Boolean) = viewModelScope.launch { container.preferences.setDynamicColors(value) }
     fun theme(value: String) = viewModelScope.launch { container.preferences.setTheme(value) }
     fun language(value: String) = viewModelScope.launch { container.preferences.setLanguage(value) }
     fun updateFilters() = viewModelScope.launch {

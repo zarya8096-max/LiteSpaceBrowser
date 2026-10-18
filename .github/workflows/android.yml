@@ -1,9 +1,9 @@
 name: Android verification
 on:
   push:
-    paths-ignore: ['**/*.md', 'LICENSE']
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE']
   pull_request:
-    paths-ignore: ['**/*.md', 'LICENSE']
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE']
 permissions:
   contents: read
 concurrency:
