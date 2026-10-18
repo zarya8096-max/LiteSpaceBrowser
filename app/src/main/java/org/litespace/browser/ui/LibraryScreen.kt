@@ -31,11 +31,13 @@ import androidx.compose.ui.unit.dp
 import org.litespace.browser.domain.LiteApp
 
 @Composable fun LibraryScreen(apps: List<LiteApp>, modifier: Modifier = Modifier, onOpen: (LiteApp) -> Unit,
-    onEdit: (LiteApp) -> Unit, onPin: (LiteApp) -> Unit, onPrivate: (LiteApp) -> Unit, onDelete: (LiteApp) -> Unit, onCreate: () -> Unit) {
+    onEdit: (LiteApp) -> Unit, onPin: (LiteApp) -> Unit, onPrivate: (LiteApp) -> Unit, onDelete: (LiteApp) -> Unit, onCreate: () -> Unit, onFilterActive: (Boolean) -> Unit = {}) {
     val keyboard = LocalSoftwareKeyboardController.current
     var query by rememberSaveable { mutableStateOf("") }
     var favorites by rememberSaveable { mutableStateOf(false) }
     var group by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(query, favorites, group) { onFilterActive(query.isNotBlank() || favorites || group != null) }
+    DisposableEffect(Unit) { onDispose { onFilterActive(false) } }
     val groups = remember(apps) { apps.map { it.group }.filter { it.isNotBlank() }.distinct().sorted() }
     LaunchedEffect(groups) { if(group != null && group !in groups) group = null }
     val visible = remember(apps, query, favorites, group) { apps.filter {

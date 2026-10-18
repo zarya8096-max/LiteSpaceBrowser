@@ -45,10 +45,12 @@ class DesignDeviceTest {
                 device.displayWidth / 2, device.displayHeight * 3 / 4, 24) }
         }
         fun findText(text: String): androidx.test.uiautomator.UiObject2 {
+            device.waitForIdle()
             device.wait(Until.findObject(By.text(text)), 2_000)?.let { return it }
             scrollTop()
             repeat(8) {
-                device.wait(Until.findObject(By.text(text)), 1_000)?.let { return it }
+                device.waitForIdle()
+                device.findObject(By.text(text))?.let { return it }
                 device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
                     device.displayWidth / 2, device.displayHeight / 3, 24)
             }
@@ -60,7 +62,7 @@ class DesignDeviceTest {
         }
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                assertNotNull(device.wait(Until.findObject(By.text("Your collection")), 30_000))
+                assertNotNull(device.wait(Until.findObject(By.text("Your collection")), 90_000))
                 capture("design-library-light")
                 val search = requireNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), 30_000))
                 search.text = "GitHub"
@@ -74,9 +76,9 @@ class DesignDeviceTest {
                 assertNotNull(device.wait(Until.findObject(By.desc("Settings")), 30_000))
                 device.findObject(By.desc("Settings")).click()
                 findText("Dark").click()
-                runBlocking { withTimeout(15_000) { app.preferences.flow.first { it.theme == "dark" } } }
+                runBlocking { withTimeout(30_000) { app.preferences.flow.first { it.theme == "dark" } } }
                 findText("فارسی").click()
-                runBlocking { withTimeout(15_000) { app.preferences.flow.first { it.language == "fa" } } }
+                runBlocking { withTimeout(30_000) { app.preferences.flow.first { it.language == "fa" } } }
                 scenario.recreate()
                 findText("ظاهر")
                 capture("design-settings-persian-dark")

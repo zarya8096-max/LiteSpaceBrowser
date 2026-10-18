@@ -49,7 +49,8 @@ import androidx.fragment.app.FragmentActivity
     val prefs by model.preferences.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf("home") }
     var editing by model.editor
-        var confirmDiscard by remember { mutableStateOf(false) }
+        var filtering by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<LiteApp?>(null) }
     var restoreText by remember { mutableStateOf<String?>(null) }
     val snack = remember { SnackbarHostState() }
@@ -103,9 +104,12 @@ import androidx.fragment.app.FragmentActivity
     }, topBar = {
         TopAppBar(title = { Text(when(screen) { "edit" -> tr("App configuration", "تنظیمات برنامه"); "settings" -> tr("Settings", "تنظیمات"); "privacy" -> tr("Privacy", "حریم خصوصی"); "backup" -> tr("Backup & restore", "پشتیبان‌گیری و بازیابی"); else -> "LiteSpace" }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
             navigationIcon = { if(screen != "home") IconButton(onClick = { leaveScreen() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "بازگشت")) } },
-            actions = { if(screen == "home") IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) } })
+            actions = { if(screen == "home") {
+                if(filtering) IconButton(onClick = { model.beginEditing(LiteApp()); screen = "edit" }) { Icon(Icons.Default.Add, createLabel) }
+                IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, tr("Settings", "تنظیمات")) }
+            } })
     }, floatingActionButton = {
-        if(screen == "home") ExtendedFloatingActionButton(onClick = { model.beginEditing(LiteApp()); screen = "edit" }, modifier = Modifier.semantics { contentDescription = createLabel }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(createLabel) })
+        if(screen == "home" && !filtering) ExtendedFloatingActionButton(onClick = { model.beginEditing(LiteApp()); screen = "edit" }, modifier = Modifier.semantics { contentDescription = createLabel }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(createLabel) })
     }) { padding ->
         when(screen) {
             "edit" -> editing?.let { AppEditor(it, Modifier.padding(padding).consumeWindowInsets(padding), onChange = { editing = it }, onSave = { model.save(it) { model.discardDraft(); screen = "home" } }) }
@@ -129,7 +133,7 @@ import androidx.fragment.app.FragmentActivity
                 onPin = { app -> scope.launch { snack.showSnackbar(Shortcuts.pin(context, app)) } },
                 onPrivate = { context.startActivity(Intent(context, BrowserActivity::class.java).putExtra("app_id", it.id).putExtra("incognito", true)) },
                 onDelete = { app -> authorizeApp(app) { deleting = it } },
-                onCreate = { model.beginEditing(LiteApp()); screen = "edit" })
+                onCreate = { model.beginEditing(LiteApp()); screen = "edit" }, onFilterActive = { filtering = it })
         }
     }
     if(confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false },
