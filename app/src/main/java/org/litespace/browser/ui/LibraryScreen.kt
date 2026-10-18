@@ -1,5 +1,9 @@
 package org.litespace.browser.ui
 
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +32,7 @@ import org.litespace.browser.domain.LiteApp
 
 @Composable fun LibraryScreen(apps: List<LiteApp>, modifier: Modifier = Modifier, onOpen: (LiteApp) -> Unit,
     onEdit: (LiteApp) -> Unit, onPin: (LiteApp) -> Unit, onPrivate: (LiteApp) -> Unit, onDelete: (LiteApp) -> Unit, onCreate: () -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
     var query by rememberSaveable { mutableStateOf("") }
     var favorites by rememberSaveable { mutableStateOf(false) }
     var group by rememberSaveable { mutableStateOf<String?>(null) }
@@ -66,14 +71,14 @@ import org.litespace.browser.domain.LiteApp
         item(span = { GridItemSpan(maxLineSpan) }) {
             OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text(tr("Find an app or a group", "جستجوی برنامه یا گروه")) },
                 leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if(query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, tr("Clear search", "پاک‌کردن جستجو")) } },
-                singleLine = true, shape = RoundedCornerShape(20.dp), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }), shape = RoundedCornerShape(20.dp), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest, focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest))
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(!favorites && group == null, { favorites = false; group = null }, label = { Text(tr("All apps", "همهٔ برنامه‌ها")) }) }
-                item { FilterChip(favorites, { favorites = !favorites; group = null }, label = { Text(tr("Favorites", "علاقه‌مندی‌ها")) }, leadingIcon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) }) }
-                items(groups) { name -> FilterChip(group == name, { group = if(group == name) null else name; favorites = false }, label = { Text(name) }) }
+                item { FilterChip(!favorites && group == null, { keyboard?.hide(); favorites = false; group = null }, label = { Text(tr("All apps", "همهٔ برنامه‌ها")) }) }
+                item { FilterChip(favorites, { keyboard?.hide(); favorites = !favorites; group = null }, label = { Text(tr("Favorites", "علاقه‌مندی‌ها")) }, leadingIcon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) }) }
+                items(groups) { name -> FilterChip(group == name, { keyboard?.hide(); group = if(group == name) null else name; favorites = false }, label = { Text(name) }) }
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -86,11 +91,12 @@ import org.litespace.browser.domain.LiteApp
         if(visible.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Surface(Modifier.size(64.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Icon(if(apps.isEmpty()) Icons.Default.Add else Icons.Default.Search, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
+                    if(apps.isEmpty()) Surface(Modifier.size(64.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Icon(if(apps.isEmpty()) Icons.Default.Add else Icons.Default.Search, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
                     Text(if(apps.isEmpty()) tr("A lighter way to browse", "راهی سبک‌تر برای مرور") else tr("Nothing here yet", "هنوز چیزی اینجا نیست"), style = MaterialTheme.typography.titleLarge)
+                    if(apps.isNotEmpty()) TextButton(onClick = { keyboard?.hide(); query = ""; favorites = false; group = null }) { Text(tr("Show all apps", "نمایش همهٔ برنامه‌ها")) }
                     Text(if(apps.isEmpty()) tr("Give your favorite website a space of its own. Start with its name and address.", "به سایت محبوبتان یک جای اختصاصی بدهید. با نام و نشانی آن شروع کنید.") else tr("Try another search or switch back to all apps.", "عبارت دیگری جستجو کنید یا همهٔ برنامه‌ها را ببینید."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if(apps.isEmpty()) FilledTonalButton(onClick = onCreate) { Text(tr("Add your first app", "ساخت اولین برنامه")) }
-                    else TextButton(onClick = { query = ""; favorites = false; group = null }) { Text(tr("Show all apps", "نمایش همهٔ برنامه‌ها")) }
+
                 }
             }
         }

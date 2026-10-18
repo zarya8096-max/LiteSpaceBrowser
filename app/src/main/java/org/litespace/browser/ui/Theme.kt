@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import org.litespace.browser.R
 import org.litespace.browser.data.Preferences
 
 val LocalPersian = staticCompositionLocalOf { false }
@@ -45,6 +48,29 @@ private val SpaceTypography = Typography(
     bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 25.sp), bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 23.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 19.sp), labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 22.sp)
 )
+private val PersianFont = FontFamily(
+    Font(R.font.vazirmatn_regular, FontWeight.Normal),
+    Font(R.font.vazirmatn_medium, FontWeight.Medium),
+    Font(R.font.vazirmatn_semibold, FontWeight.SemiBold),
+    Font(R.font.vazirmatn_bold, FontWeight.Bold)
+)
+private val PersianTypography = SpaceTypography.copy(
+    displayLarge = SpaceTypography.displayLarge.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    displayMedium = SpaceTypography.displayMedium.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    displaySmall = SpaceTypography.displaySmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    headlineLarge = SpaceTypography.headlineLarge.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    headlineMedium = SpaceTypography.headlineMedium.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    headlineSmall = SpaceTypography.headlineSmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    titleLarge = SpaceTypography.titleLarge.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    titleMedium = SpaceTypography.titleMedium.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    titleSmall = SpaceTypography.titleSmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    bodyLarge = SpaceTypography.bodyLarge.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    bodyMedium = SpaceTypography.bodyMedium.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    bodySmall = SpaceTypography.bodySmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    labelLarge = SpaceTypography.labelLarge.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    labelMedium = SpaceTypography.labelMedium.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
+    labelSmall = SpaceTypography.labelSmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp)
+)
 @Composable fun LiteSpaceTheme(preferences: Preferences, accent: Long? = null, content: @Composable () -> Unit) {
     val dark = preferences.theme == "dark" || (preferences.theme == "system" && isSystemInDarkTheme())
     val activity = LocalContext.current as? android.app.Activity
@@ -55,7 +81,7 @@ private val SpaceTypography = Typography(
         if(dark) dynamicDarkColorScheme(LocalContext.current) else dynamicLightColorScheme(LocalContext.current)
     } else if(dark) Night else Day
     CompositionLocalProvider(LocalPersian provides (preferences.language == "fa"), LocalLayoutDirection provides if(preferences.language == "fa") LayoutDirection.Rtl else LayoutDirection.Ltr) {
-        MaterialTheme(colorScheme = if(accent != null) colors.copy(primary = if(dark) androidx.compose.ui.graphics.lerp(Color(accent), Color.White, .55f) else Color(accent)) else colors, typography = if(preferences.language == "fa") SpaceTypography.copy(headlineLarge = SpaceTypography.headlineLarge.copy(letterSpacing = 0.sp), headlineMedium = SpaceTypography.headlineMedium.copy(letterSpacing = 0.sp)) else SpaceTypography,
+        MaterialTheme(colorScheme = if(accent != null) colors.copy(primary = if(dark) androidx.compose.ui.graphics.lerp(Color(accent), Color.White, .55f) else Color(accent)) else colors, typography = if(preferences.language == "fa") PersianTypography else SpaceTypography,
             shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(28.dp), extraLarge = RoundedCornerShape(32.dp)), content = content)
     }
 }

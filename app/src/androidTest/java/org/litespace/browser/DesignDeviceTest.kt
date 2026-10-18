@@ -5,8 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiScrollable
-import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -42,10 +40,19 @@ class DesignDeviceTest {
             }
             assertTrue("Screenshot must contain an actual PNG", output.inputStream().use { it.read() == 137 && it.read() == 80 })
         }
+        fun scrollTop() {
+            repeat(3) { device.swipe(device.displayWidth / 2, device.displayHeight / 3,
+                device.displayWidth / 2, device.displayHeight * 3 / 4, 24) }
+        }
         fun findText(text: String): androidx.test.uiautomator.UiObject2 {
-            device.waitForIdle()
-            if(!device.hasObject(By.text(text))) UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView(text)
-            return requireNotNull(device.wait(Until.findObject(By.text(text)), 30_000)) { "Missing UI text: $text" }
+            device.wait(Until.findObject(By.text(text)), 2_000)?.let { return it }
+            scrollTop()
+            repeat(8) {
+                device.wait(Until.findObject(By.text(text)), 1_000)?.let { return it }
+                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
+                    device.displayWidth / 2, device.displayHeight / 3, 24)
+            }
+            error("Missing UI text after scrolling: $text")
         }
         runBlocking {
             app.preferences.setLanguage("en"); app.preferences.setTheme("light"); app.preferences.setDynamicColors(false)
@@ -59,7 +66,7 @@ class DesignDeviceTest {
                 search.text = "GitHub"
                 findText("GitHub")
                 assertNotNull(device.wait(Until.findObject(By.text("1")), 30_000))
-                UiScrollable(UiSelector().scrollable(true)).flingToBeginning(3)
+                scrollTop()
                 findText("Favorites").click()
                 findText("Nothing here yet")
                 findText("Show all apps").click()
