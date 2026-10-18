@@ -46,13 +46,22 @@ import org.litespace.browser.LiteSpaceApplication
 import org.litespace.browser.domain.LiteApp
 import org.litespace.browser.domain.UrlPolicy
 import org.litespace.browser.domain.RuntimePermissionGate
+import org.litespace.browser.domain.TrackingParameters
+import org.litespace.browser.domain.NativeTemplates
+import org.litespace.browser.domain.enabledScriptIds
+import org.litespace.browser.data.ToolRecord
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.litespace.browser.ui.*
 import java.io.ByteArrayInputStream
 import java.util.UUID
 
-class BrowserActivity : FragmentActivity() {
+open class BrowserActivity : FragmentActivity() {
     private val container get() = application as LiteSpaceApplication
     private lateinit var app: LiteApp
+    private var transient = false
+    private var library: List<ToolRecord> = emptyList()
+    private var persian = false
     private var web: WebView? = null
     private var refresh: SwipeRefreshLayout? = null
     private var profile: Profile? = null
@@ -94,13 +103,19 @@ class BrowserActivity : FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         lifecycleScope.launch {
             val found = intent.getStringExtra("app_id")?.let { container.repository.get(it) }
-            if(found == null) { toast("This Lite App no longer exists"); finish(); return@launch }
-            app = found
+            val temporaryUrl = intent.getStringExtra("transient_url")?.takeIf { it.length <= 8192 }?.let { runCatching { UrlPolicy.normalize(it) }.getOrNull() }
+            if(found == null && temporaryUrl == null) { toast("This Lite App no longer exists"); finish(); return@launch }
+            transient = found == null
+            app = found ?: LiteApp(name = Uri.parse(temporaryUrl).host ?: "Web", url = temporaryUrl!!)
+            if(!app.incognito && !intent.getBooleanExtra("incognito", false)) LegacySandboxes.intent(this@BrowserActivity, intent, app.profile)?.let {
+                startActivity(it); finish(); return@launch
+            }
+            library = container.tools.dao.all().filter { it.kind == "script" && it.id in app.enabledScriptIds() }
             // Revoking settings/deleting an entry must also close an already
             // running Activity, including one retained behind the manager.
             lifecycleScope.launch {
                 container.repository.apps.collect { entries ->
-                    if(entries.firstOrNull { it.id == app.id } != app) {
+                    if(!transient && entries.firstOrNull { it.id == app.id } != app) {
                         toast("Configuration changed. Reopen this Lite App."); finish()
                     }
                 }
@@ -113,8 +128,9 @@ class BrowserActivity : FragmentActivity() {
                     .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.setOnCancelListener { finish() })
                 return@launch
             }
-            temporary = intent.getBooleanExtra("incognito", false)
-            if(temporary && (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) || !WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA))) {
+            temporary = intent.getBooleanExtra("incognito", false) || app.incognito || (transient && supportsProfiles() && WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA))
+            if(transient && !temporary) toast("Temporary tab uses shared storage on this WebView; it is not incognito")
+            if(temporary && (!supportsProfiles() || !WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA))) {
                 showDialog(android.app.AlertDialog.Builder(this@BrowserActivity).setTitle("Private session unavailable")
                     .setMessage("Update Android System WebView. Private sessions require isolated profiles and complete browsing-data deletion support.")
                     .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.setOnCancelListener { finish() })
@@ -142,7 +158,7 @@ class BrowserActivity : FragmentActivity() {
     private fun createWebView(): SwipeRefreshLayout {
         val view = WebView(this)
         web = view
-        if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+        if(supportsProfiles()) {
             val store = ProfileStore.getInstance()
             // AndroidX cannot delete profiles loaded in this process, even after WebView destruction.
             // Unloaded orphan profiles from an earlier process can be deleted here.
@@ -166,9 +182,11 @@ class BrowserActivity : FragmentActivity() {
                     })
                 }
             }
-        } else toast("Shared WebView storage: clearing data affects every Lite App")
+        } else toast(if(LegacySandboxes.isSandboxProcess()) "Isolated ${app.profile} sandbox: storage is shared only by entries in this sandbox" else "Shared WebView storage: clearing data affects every Lite App")
         view.setBackgroundColor(Color.WHITE)
         with(view.settings) {
+            loadsImagesAutomatically = app.images
+            blockNetworkImage = !app.images
             javaScriptEnabled = app.javascript
             domStorageEnabled = true
             allowFileAccess = false
@@ -207,6 +225,12 @@ class BrowserActivity : FragmentActivity() {
                     if(request.isForMainFrame) navigate(request.url.toString())
                     return true
                 }
+                if(request.isForMainFrame && request.method == "GET") {
+                    val original = request.url.toString()
+                    val clean = if(app.removeTracking) TrackingParameters.strip(original) else original
+                    if(app.externalLinks && request.hasGesture() && UrlPolicy.origin(clean) != UrlPolicy.origin(app.url)) { launchExternal(clean); return true }
+                    if(clean != original || app.dataSaver) { navigate(clean); return true }
+                }
                 return false
             }
             override fun shouldInterceptRequest(v: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -228,6 +252,7 @@ class BrowserActivity : FragmentActivity() {
                     // document between onPageFinished and evaluateJavascript.
                     val guard = "if(location.origin!==${JSONObject.quote(expected)})return;"
                     if(app.css.isNotBlank()) v.evaluateJavascript("(function(){$guard let s=document.getElementById('litespace-css');if(!s){s=document.createElement('style');s.id='litespace-css';document.documentElement.appendChild(s);}s.textContent=${JSONObject.quote(app.css)};})()", null)
+                    library.filter { it.enabled }.forEach { record -> v.evaluateJavascript("(function(){$guard try{${record.payload}\n}catch(e){console.error('LiteSpace library',e);}})()", null) }
                     if(app.script.isNotBlank()) v.evaluateJavascript("(function(){$guard try{${app.script}\n}catch(e){console.error('LiteSpace script',e);}})()", null)
                 }
             }
@@ -281,7 +306,7 @@ class BrowserActivity : FragmentActivity() {
                 if(!app.popups || !isUserGesture || !canShowPageUi()) return false
                 popup?.destroy()
                 val child = WebView(this@BrowserActivity)
-                if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                if(supportsProfiles()) {
                     profile?.let { WebViewCompat.setProfile(child, it.name) }
                 }
                 // The temporary window only captures a URL. It must never send an
@@ -316,6 +341,7 @@ class BrowserActivity : FragmentActivity() {
         }
         val wrapper = SwipeRefreshLayout(this).apply {
             addView(view)
+            isEnabled = app.pullToRefresh
             setOnChildScrollUpCallback { _, _ -> view.canScrollVertically(-1) }
             setOnRefreshListener { reloadPage() }
         }
@@ -330,7 +356,8 @@ class BrowserActivity : FragmentActivity() {
             }
             false
         }
-        view.loadUrl(app.url)
+        val initialUrl = intent.getStringExtra("start_url")?.takeIf { it.length <= 8192 }?.let { runCatching { UrlPolicy.normalize(it, app.httpsOnly) }.getOrNull() } ?: app.url
+        navigate(initialUrl)
         return wrapper
     }
 
@@ -344,6 +371,7 @@ class BrowserActivity : FragmentActivity() {
         immersive(app.fullscreen)
         lifecycleScope.launch {
             val preferences = container.preferences.flow.first()
+            persian = preferences.language == "fa"
             setContent {
                 LiteSpaceTheme(preferences.copy(theme = if(app.dark) "dark" else preferences.theme), accent = app.accent) {
                     Box(Modifier.fillMaxSize()) {
@@ -355,7 +383,15 @@ class BrowserActivity : FragmentActivity() {
                             IconButton(onClick = { reloadPage() }) { Icon(Icons.Default.Refresh, tr("Reload", "بارگذاری دوباره")) }
                             Box { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("Menu", "فهرست")) }
                                 DropdownMenu(menu, { menu = false }) {
-                                    DropdownMenuItem(text = { Text(tr("Home", "خانه")) }, onClick = { menu = false; web?.loadUrl(app.url) })
+                                    DropdownMenuItem(text = { Text(tr("Home", "خانه")) }, onClick = { menu = false; navigate(app.url) })
+                                    DropdownMenuItem(text = { Text(tr("Lite App settings", "تنظیمات برنامه")) }, enabled = !transient, onClick = { menu = false; startActivity(Intent(this@BrowserActivity, org.litespace.browser.MainActivity::class.java).putExtra("edit_app_id", app.id).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)) })
+                                    DropdownMenuItem(text = { Text(tr("Reader mode", "حالت مطالعه")) }, onClick = { menu = false; readArticle() })
+                                    DropdownMenuItem(text = { Text(tr("Print / Save PDF", "چاپ / ذخیره PDF")) }, onClick = { menu = false; printPage() })
+                                    DropdownMenuItem(text = { Text(tr("Bookmark this page", "نشانک‌گذاری صفحه")) }, onClick = { menu = false; bookmarkPage() })
+                                    DropdownMenuItem(text = { Text(tr("Scripts & tools", "اسکریپت و ابزارها")) }, onClick = { menu = false; chooseScript() })
+                                    DropdownMenuItem(text = { Text(tr("Search this website", "جستجو در سایت")) }, onClick = { menu = false; searchPage() }, enabled = app.searchUrl.isNotBlank())
+                                    DropdownMenuItem(text = { Text(tr("Share page", "اشتراک صفحه")) }, onClick = { menu = false; sharePage() })
+                                    DropdownMenuItem(text = { Text(tr("Double back", "دو صفحه عقب")) }, onClick = { menu = false; web?.let { if(it.canGoBackOrForward(-2)) it.goBackOrForward(-2) else if(it.canGoBack()) it.goBack() } })
                                     DropdownMenuItem(text = { Text(tr("Clear cookies & site storage", "پاک‌کردن کوکی و داده سایت")) }, onClick = { menu = false; confirm("Clear profile data?", "This signs out every Lite App sharing this profile. Older WebView shares storage across all apps and may retain service-worker data.") { clearData { web?.loadUrl(app.url) } } })
                                     DropdownMenuItem(text = { Text(tr("Clear cache", "پاک‌کردن حافظه نهان")) }, onClick = { menu = false; web?.clearCache(true); toast("Cache cleared") })
                                     DropdownMenuItem(text = { Text(tr("Zoom in", "بزرگ‌نمایی")) }, onClick = { menu = false; web?.zoomIn() }, enabled = app.zoom)
@@ -393,21 +429,85 @@ class BrowserActivity : FragmentActivity() {
     private fun navigate(url: String) {
         // Redirects and popup URLs are untrusted website input, unlike saved configs.
         runCatching { UrlPolicy.normalize(url, app.httpsOnly) }
-            .onSuccess { web?.loadUrl(it) }
+            .onSuccess { target ->
+                val clean = if(app.removeTracking) TrackingParameters.strip(target) else target
+                web?.loadUrl(clean, if(app.dataSaver) mapOf("Save-Data" to "on") else emptyMap())
+            }
             .onFailure { toast("This website link is not supported") }
     }
     private fun reloadPage() { if(web?.url == ERROR_PAGE) navigate(retryUrl ?: app.url) else web?.reload() }
     private fun openExternalBrowser() {
         val target = if(web?.url == ERROR_PAGE) retryUrl ?: app.url else currentUrl.ifBlank { app.url }
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UrlPolicy.normalize(target, app.httpsOnly)))) }
-            .onFailure { toast("Cannot open this page in another browser") }
+        launchExternal(target)
     }
 
-    private fun cookies(): CookieManager = if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.cookieManager ?: CookieManager.getInstance() else CookieManager.getInstance()
+    private fun supportsProfiles() = !LegacySandboxes.isSandboxProcess() && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)
+    private fun label(en: String, fa: String) = if(persian) fa else en
+    private fun printPage() { web?.let { view ->
+        runCatching { (getSystemService(PRINT_SERVICE) as android.print.PrintManager).print(app.name, view.createPrintDocumentAdapter(app.name), null) }
+            .onFailure { toast(label("Printing unavailable", "چاپ در دسترس نیست")) }
+    } }
+    private fun bookmarkPage() {
+        val url = runCatching { UrlPolicy.normalize(currentUrl, app.httpsOnly) }.getOrNull() ?: return
+        lifecycleScope.launch {
+            runCatching { container.tools.save(ToolRecord(kind = "bookmark", appId = if(transient) "" else app.id, title = (web?.title ?: app.name).take(100).ifBlank { app.name }, url = url)) }
+                .onSuccess { toast(label("Bookmark saved", "نشانک ذخیره شد")) }.onFailure { toast(it.message ?: "Cannot save bookmark") }
+        }
+    }
+    private fun sharePage() {
+        val url = runCatching { UrlPolicy.normalize(currentUrl, app.httpsOnly) }.getOrNull() ?: return
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, url).putExtra(Intent.EXTRA_SUBJECT, web?.title ?: app.name), label("Share page", "اشتراک صفحه")))
+    }
+    private fun searchPage() {
+        val input = android.widget.EditText(this).apply { isSingleLine = true }
+        showDialog(android.app.AlertDialog.Builder(this).setTitle(label("Search this website", "جستجو در سایت")).setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ -> runCatching { NativeTemplates.expand(app.searchUrl, input.text.toString()) }.onSuccess(::navigate).onFailure { toast(it.message ?: "Invalid search URL") } }
+            .setNegativeButton(android.R.string.cancel, null))
+    }
+    private fun chooseScript() {
+        val choices = library.map { it.title } + label("Manage tools, feeds and bookmarks", "مدیریت ابزار، خوراک و نشانک")
+        showDialog(android.app.AlertDialog.Builder(this).setTitle(label("Scripts & tools", "اسکریپت و ابزارها")).setItems(choices.toTypedArray()) { _, index ->
+            if(index == library.size) startActivity(Intent(this, ToolsActivity::class.java).putExtra("app_id", if(transient) "" else app.id))
+            else {
+                val script = library[index]
+                val origin = UrlPolicy.origin(web?.url)
+                if(!app.javascript || origin == null) { toast(label("Enable JavaScript first", "ابتدا جاوااسکریپت را فعال کنید")); return@setItems }
+                confirm(label("Run script?", "اجرای اسکریپت؟"), "${script.title}\n$origin") {
+                    web?.evaluateJavascript("(function(){if(location.origin!==${JSONObject.quote(origin)})return;try{${script.payload}\n}catch(e){console.error(e)}})()", null)
+                }
+            }
+        })
+    }
+    private fun readArticle() {
+        val view = web ?: return
+        val source = view.url ?: return
+        if(!app.javascript) { startActivity(Intent(this, ReaderActivity::class.java).putExtra("url", source).putExtra("protected", app.lock)); return }
+        val origin = UrlPolicy.origin(source) ?: return
+        lifecycleScope.launch {
+            val parser = withContext(Dispatchers.IO) { assets.open("Readability.js").bufferedReader().use { it.readText() } }
+            if(locked || UrlPolicy.origin(view.url) != origin) return@launch
+            view.evaluateJavascript("(function(){if(location.origin!==${JSONObject.quote(origin)})return null;$parser;var a=new Readability(document.cloneNode(true)).parse();return a ? '<h1>'+a.title.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</h1>'+a.content : null;})()") { result ->
+                if(locked || isFinishing || UrlPolicy.origin(view.url) != origin) return@evaluateJavascript
+                val html = runCatching { org.json.JSONTokener(result).nextValue() as? String }.getOrNull()
+                if(html.isNullOrBlank()) toast(label("No readable article found", "مقالهٔ قابل‌مطالعه یافت نشد")) else ReaderActivity.open(this@BrowserActivity, html, app.lock)
+            }
+        }
+    }
+    private fun launchExternal(url: String) {
+        val target = runCatching { UrlPolicy.normalize(url, app.httpsOnly) }.getOrNull() ?: return
+        val base = Intent(Intent.ACTION_VIEW, Uri.parse(target)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val choices = packageManager.queryIntentActivities(base, 0).filter { it.activityInfo.packageName != packageName }
+            .distinctBy { it.activityInfo.packageName }.map { Intent(base).setPackage(it.activityInfo.packageName) }
+        if(choices.isEmpty()) { toast(label("No external browser found", "مرورگر دیگری یافت نشد")); return }
+        runCatching { startActivity(Intent.createChooser(choices.first(), label("Open externally", "بازکردن در مرورگر دیگر")).putExtra(Intent.EXTRA_INITIAL_INTENTS, choices.drop(1).toTypedArray())) }
+            .onFailure { toast("Cannot open external browser") }
+    }
+
+    private fun cookies(): CookieManager = if(supportsProfiles()) profile?.cookieManager ?: CookieManager.getInstance() else CookieManager.getInstance()
     private fun clearData(done: () -> Unit = {}) {
         web?.stopLoading()
-        val storage = if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.webStorage ?: WebStorage.getInstance() else WebStorage.getInstance()
-        (if(WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.geolocationPermissions ?: GeolocationPermissions.getInstance() else GeolocationPermissions.getInstance()).clearAll()
+        val storage = if(supportsProfiles()) profile?.webStorage ?: WebStorage.getInstance() else WebStorage.getInstance()
+        (if(supportsProfiles()) profile?.geolocationPermissions ?: GeolocationPermissions.getInstance() else GeolocationPermissions.getInstance()).clearAll()
         web?.clearCache(true); web?.clearHistory(); web?.clearFormData()
         if(WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
             WebStorageCompat.deleteBrowsingData(storage) { done() }
@@ -534,7 +634,7 @@ class BrowserActivity : FragmentActivity() {
         if(::app.isInitialized && storageReady && !cleaned && (app.clearOnExit || temporary)) { clearData(); cleaned = true }
         popup?.destroy(); popup = null
         web?.let { view -> (view.parent as? android.view.ViewGroup)?.removeView(view); view.stopLoading(); view.webChromeClient = null; view.destroy() }; web = null; refresh = null
-        if(profile != null && WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) profile?.let { p -> activeProfiles.remove(p.name) }
+        if(profile != null && supportsProfiles()) profile?.let { p -> activeProfiles.remove(p.name) }
         super.onDestroy()
     }
     companion object {

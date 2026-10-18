@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".RedProbeActivity" android:process=":sandbox_red" android:exported="false" />
+        <activity android:name=".GreenProbeActivity" android:process=":sandbox_green" android:exported="false" />
+    </application>
+</manifest>

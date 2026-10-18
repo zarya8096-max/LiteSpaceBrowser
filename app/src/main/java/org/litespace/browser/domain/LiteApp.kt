@@ -32,5 +32,15 @@ data class LiteApp(
     val downloadNotifications: Boolean = true,
     val profile: String = "",
     val accent: Long = 0xFF526849,
+    val tags: String = "",
+    val removeTracking: Boolean = false,
+    val images: Boolean = true,
+    val dataSaver: Boolean = false,
+    val pullToRefresh: Boolean = true,
+    val externalLinks: Boolean = false,
+    val scriptIds: String = "",
+    val searchUrl: String = "",
+    val shareUrl: String = "",
+    val incognito: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 ) : java.io.Serializable

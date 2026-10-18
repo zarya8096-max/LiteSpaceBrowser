@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -9,10 +10,31 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <queries><intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent></queries>
     <application android:name=".LiteSpaceApplication" android:label="@string/app_name"
         android:icon="@drawable/ic_litespace" android:roundIcon="@drawable/ic_litespace"
         android:theme="@style/Theme.LiteSpace" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
         android:supportsRtl="true" android:usesCleartextTraffic="true">
+        <activity android:name=".ui.ToolsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".web.RedSandboxActivity" android:process=":sandbox_red" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".web.GreenSandboxActivity" android:process=":sandbox_green" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".web.BlueSandboxActivity" android:process=":sandbox_blue" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".web.PurpleSandboxActivity" android:process=":sandbox_purple" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".web.YellowSandboxActivity" android:process=":sandbox_yellow" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".web.ReaderActivity" android:exported="false" />
+        <activity android:name=".web.LinkRouterActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" /><data android:scheme="http" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
         <activity android:name=".web.BrowserActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>

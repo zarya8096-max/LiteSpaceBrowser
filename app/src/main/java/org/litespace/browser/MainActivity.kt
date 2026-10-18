@@ -1,6 +1,9 @@
 package org.litespace.browser
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,6 +31,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         editorLocked = model.editor.value?.lock == true
         enableEdgeToEdge()
+        handleEditIntent(intent)
         setContent {
             val preferences by model.preferences.collectAsStateWithLifecycle()
             val protected = model.editor.value?.lock == true
@@ -45,6 +49,16 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+    private fun handleEditIntent(incoming: Intent) {
+        val id = incoming.getStringExtra("edit_app_id") ?: return
+        incoming.removeExtra("edit_app_id")
+        lifecycleScope.launch {
+            val app = model.repository.get(id) ?: return@launch
+            if(app.lock) DeviceAuth.verify(this@MainActivity, "Unlock configuration") { model.beginEditing(app) }
+            else model.beginEditing(app)
+        }
+    }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleEditIntent(intent) }
     override fun onStop() {
         if(model.editor.value?.lock == true) editorLocked = true
         super.onStop()

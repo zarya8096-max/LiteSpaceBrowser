@@ -6,9 +6,12 @@
   disables its pinned shortcut; editing it requires pinning again to update its label.
 * AndroidX WebKit MULTI_PROFILE is detected at runtime, not inferred from Android
   version. Supported devices use a unique profile for each app; explicitly matching
-  profile names share cookies and storage. Older WebViews share the default profile
-  and display a warning. Separate processes/data-directory suffixes are not used:
-  they cannot provide unlimited simultaneous independent profiles on API 26.
+  profile names share cookies and storage. On Android 9+, five reserved profile names (red, green, blue, purple, yellow)
+  use separate Android processes/data-directory suffixes and work independently
+  of MULTI_PROFILE. Entries within one color share that storage. Other names and
+  unique profiles still require MULTI_PROFILE. Android 8 with an older provider
+  shares default storage and displays a warning. Fixed processes cannot provide
+  unlimited independent profiles on API 26.
 * Incognito requires both MULTI_PROFILE and DELETE_BROWSING_DATA support. It uses
   temporary disk storage and clears browsing data asynchronously on normal close.
   AndroidX cannot delete a profile loaded into the current process, even after its
@@ -24,16 +27,25 @@
   registrations, Cache Storage and all provider-specific stores. Cache APIs may have provider-specific scope. Configuration
   deletion does not erase persistent profile data: clear it before deleting the app.
 * Website Web Push / Notification API / service-worker push notifications are not
-  implemented by Android WebView. There is no fake push, periodic website scraping,
-  or background browser service. Per-app notification control covers download
-  completion notices; Android Download Manager still owns progress notifications.
+  implemented by Android WebView. There is no fake push or background browser service. Opt-in RSS/Atom and
+  server-HTML monitors use one batched WorkManager job, at least 15 minutes apart;
+  Doze can delay checks. The first check creates a baseline. HTML monitors do not
+  execute JavaScript. Same-origin cookies may be used for scheduled authenticated
+  checks; redirected requests never receive cookies from another origin. Locked,
+  private and fixed-color-process apps are excluded. Feed and monitor sources have
+  individual controls and per-app Android notification channels. The original
+  download completion toggle still controls only download notices; DownloadManager
+  owns progress notifications. Thumbnail fetches are HTTPS, bounded, and do not
+  send website cookies. Source testing in the editor is a public preview.
 * The blocker supports hosts/domain lists, including subdomains. It does not implement
   EasyList syntax, cosmetic filtering, CNAME uncloaking, WebSocket filtering or a VPN.
   Isolated profiles also filter service-worker network requests. Shared/default profiles
   do not apply a per-app service-worker policy, and interception cannot see every
   cache/network request. A small
-  original seed is bundled. Explicit update downloads the maintained StevenBlack
-  unified hosts list over TLS; no scheduled refresh/background job runs. List licenses:
+  original seed is bundled. StevenBlack is the initial maintained list. You can add/select/delete custom
+  HTTPS HOSTS sources and explicitly update them. Weekly background updates are
+  opt-in; stale rules remain on a failed update. HTTPS redirects are validated.
+  Operators must respect each custom source's license. StevenBlack list licenses:
   https://github.com/StevenBlack/hosts (including each upstream source's license).
 * Pop-ups require a user gesture and confirmation, then open in the same WebView.
   Multi-window opener/postMessage-dependent OAuth flows may require an external
@@ -47,7 +59,11 @@
   Cross-origin frames cannot request camera/microphone/location; only the top HTTPS
   origin is accepted. Permissions are not persisted as website grants.
 * JavaScript/CSS injection is restricted to the configured site's exact origin. It
-  requires JavaScript enabled and runs after page load. Single-page-app navigation
+  requires JavaScript enabled and runs after page load. Shared script definitions
+  are selected independently for each Lite App. Confirmed manual scripts can run
+  on the current origin, guarded against an intervening cross-origin navigation.
+  There are no privileged GM APIs or external @require/@resource loading.
+  Single-page-app navigation
   may need an observer in user scripts. No native JavaScript bridge is exposed.
 * Algorithmic darkening depends on the installed WebView and the site's styling.
   A custom user-agent overrides the desktop toggle. HTTPS-only upgrades navigation
@@ -63,8 +79,11 @@
 * Persian/English Compose management and browser controls support RTL. Some system
   dialogs and diagnostic messages use English or the Android system locale.
 * Backup JSON includes custom scripts and URLs and is not encrypted. It excludes
-  cookies, website data, global theme/language and device credentials. Restore merges
-  IDs transactionally after confirmation. It accepts at most 8 MB / 5000 entries as
+  cookies, website data, cached filters, monitor snapshots and device credentials.
+  Version 2 includes global appearance/language/sync settings and tool definitions.
+  Restore merges
+  IDs in one Room transaction after validation and confirmation. Global DataStore
+  settings are applied afterward; Room and DataStore do not share a transaction. It accepts at most 8 MB / 5000 entries as
   parser safety bounds; this does not limit the number of Lite Apps stored locally.
   Export applies the same UTF-8 byte and app-count bounds and fails explicitly before
   writing if exceeded. Reduce custom icon/code size before exporting an oversized
@@ -98,3 +117,26 @@ Browser settings are snapshots taken at launch. Editing, restoring over or delet
 a configuration closes its existing browser Activities, including background ones,
 so revoked permissions and new lock settings cannot leave stale browsers running.
 Reopen to apply new configuration. Global language/theme changes apply on next launch.
+
+## Reader, integrations and reduced data
+
+Reader uses the bundled MIT-licensed Mozilla Readability 0.6.0 on an already loaded
+page. Its local sanitized document disables scripts, remote resources and frames.
+Images are omitted to avoid tracking; links explicitly return to the browser router.
+Article HTML briefly passes through a bounded app-private cache file, deleted when
+Reader consumes it. A force-stop before consumption can leave that file until app
+cache cleanup. Sharing a URL or requesting Reader with JavaScript disabled fetches
+public server HTML without website cookies and uses article/main-element extraction;
+authenticated or client-rendered articles can require opening the site first.
+
+Printing/PDF uses Android's Print Framework. Available destinations depend on the
+installed print service. Save-Data is a top-level request hint for cooperating sites;
+it is not traffic compression and cannot guarantee savings for subresources or all
+redirects. Disabling images uses actual WebView settings.
+
+Default-browser routing matches exact hosts and asks when multiple entries match.
+Unknown links use private profiles when supported, otherwise display a shared-storage
+warning; they are never silently described as incognito on an unsupported provider.
+Outgoing external-browser selection excludes LiteSpace to prevent routing loops.
+Custom search/share templates URL-encode substitutions. Script, reader, printing and
+website compatibility still vary with WebView and the site's policy.

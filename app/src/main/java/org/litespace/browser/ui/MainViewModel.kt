@@ -28,7 +28,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun delete(app: LiteApp) = viewModelScope.launch {
         runCatching { repository.delete(app.id) }
-            .onSuccess { if(!Shortcuts.disable(getApplication(), app)) messages.emit("App deleted; launcher shortcut could not be disabled") }
+            .onSuccess { SyncScheduler.reconcile(getApplication()); getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).deleteNotificationChannel("site-${app.id}"); if(!Shortcuts.disable(getApplication(), app)) messages.emit("App deleted; launcher shortcut could not be disabled") }
             .onFailure { messages.emit(it.message ?: "Unable to delete") }
     }
     fun dynamicColors(value: Boolean) = viewModelScope.launch { container.preferences.setDynamicColors(value) }

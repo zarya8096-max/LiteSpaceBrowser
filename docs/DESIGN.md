@@ -4,6 +4,16 @@ The interface uses forest green, warm neutral surfaces, rounded cards and a clea
 reading hierarchy. The collection is the starting point; privacy and settings are
 one tap away in the bottom navigation.
 
+## Real Android screenshots
+
+<img src="screenshots/design-library-light.png" width="240" alt="English light collection" />
+<img src="screenshots/design-library-persian-dark.png" width="240" alt="Persian dark collection" />
+<img src="screenshots/design-settings-persian-dark.png" width="240" alt="Persian settings" />
+<img src="screenshots/design-editor-persian-dark.png" width="240" alt="Persian app editor" />
+
+These captures come from the running Android 8 application. Website entries are
+created by the device test and removed afterward.
+
 ## Collection
 
 - Adaptive card columns, sized for the available width rather than a fixed phone.
@@ -12,6 +22,7 @@ one tap away in the bottom navigation.
 - Favorite and lock indicators; readable site hosts; individual action menus.
 - Actual collection counts, localized Persian numerals and animated list changes.
 - A persistent, explicitly labeled create action, including for screen readers.
+  While filtering, it moves to the app bar to keep recovery actions clear.
 
 ## App configuration
 
@@ -30,7 +41,8 @@ remain in place.
 
 The light and dark palettes have separate surface and foreground colors. Persian
 uses bundled Vazirmatn 33.003 (SIL Open Font License, included in APK assets),
-headlines use normal letter spacing, and navigation/layout mirror in RTL. Color
+headlines use normal letter spacing, and navigation/layout mirror in RTL. On older Android versions, system navigation uses the selected theme background
+with verified control contrast. Color
 and language choices wrap when space is limited, and settings pages scroll.
 Android 12+ offers an explicit wallpaper-color switch using Material You. Theme,
 language and this switch persist in DataStore. No database migration is needed.

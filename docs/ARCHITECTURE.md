@@ -20,3 +20,30 @@ Custom scripts have the same privileges as the page, with no native JS bridge.
 No analytics, server, account, background polling or paid service. Filter updates are
 explicit foreground operations; WorkManager is unnecessary. The homepage/error document
 is served through WebViewAssetLoader under its reserved HTTPS domain.
+
+## 1.2 Premium modules
+
+Room schema 2 adds advanced app settings and a tool table for shared script,
+bookmark, list and notification-source definitions. A non-destructive 1→2 migration
+and a real migration test preserve schema-1 configurations. Backup version 2 accepts
+version 1 and validates all definitions before a Room transaction; DataStore global
+preferences are restored separately.
+
+Five reserved color profiles use non-exported Activities in separate OS processes
+on Android 9+, initialized with `WebView.setDataDirectorySuffix` before any WebView
+API. Room multi-instance invalidation propagates configuration revocations between
+those processes. Native multi-profile support handles arbitrary profiles where
+available. Background sync runs only in the main process and excludes fixed colors,
+private apps and locked apps.
+
+SafeHttp uses HTTPS, bounded bodies, timeouts and manual redirect handling. RSS/Atom
+parsing refuses DTD/entities. CSS monitor extraction is server-HTML-only. One periodic
+WorkManager task batches enabled notification sources; a separate opt-in weekly
+job updates selected filter lists. No WebView is created for background checks.
+
+The browser runs bundled Readability against a cloned page DOM. ReaderActivity
+sanitizes the resulting HTML and serves a local non-scriptable document with remote
+resources blocked. Printing uses PrintManager. LinkRouterActivity validates exported
+HTTP(S)/plain-text inputs and routes existing entries through the normal auth gate.
+Debug-only non-exported probes test separate-process cookies; they are absent from
+release APKs.

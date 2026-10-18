@@ -17,5 +17,17 @@ interface LiteAppDao {
     @Query("DELETE FROM lite_apps WHERE id = :id") suspend fun delete(id: String)
 }
 
-@Database(entities = [LiteAppEntity::class], version = 1, exportSchema = true)
-abstract class LiteDatabase : RoomDatabase() { abstract fun apps(): LiteAppDao }
+@Database(entities = [LiteAppEntity::class, ToolRecord::class], version = 2, exportSchema = true)
+abstract class LiteDatabase : RoomDatabase() { abstract fun apps(): LiteAppDao
+    abstract fun tools(): ToolDao
+    companion object {
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                for(name in listOf("tags", "scriptIds", "searchUrl", "shareUrl")) db.execSQL("ALTER TABLE lite_apps ADD COLUMN config_${name} TEXT NOT NULL DEFAULT ''")
+                for(name in listOf("removeTracking", "dataSaver", "externalLinks", "incognito")) db.execSQL("ALTER TABLE lite_apps ADD COLUMN config_${name} INTEGER NOT NULL DEFAULT 0")
+                for(name in listOf("images", "pullToRefresh")) db.execSQL("ALTER TABLE lite_apps ADD COLUMN config_${name} INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("CREATE TABLE IF NOT EXISTS tools (id TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL, appId TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, payload TEXT NOT NULL, enabled INTEGER NOT NULL, snapshot TEXT NOT NULL, checkedAt INTEGER NOT NULL, error TEXT NOT NULL)")
+            }
+        }
+    }
+}

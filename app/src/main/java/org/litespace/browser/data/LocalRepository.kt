@@ -3,18 +3,22 @@ package org.litespace.browser.data
 import org.litespace.browser.domain.LiteApp
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import org.litespace.browser.domain.AppRepository
 import org.litespace.browser.domain.UrlPolicy
 
-class LocalRepository(private val db: LiteDatabase) : AppRepository {
+class LocalRepository(private val db: LiteDatabase, private val preferences: PreferencesStore? = null) : AppRepository {
     private val dao = db.apps()
     override val apps = dao.observe().map { entries -> entries.map { it.configuration } }
     override suspend fun get(id: String) = dao.get(id)?.configuration
     override suspend fun save(app: LiteApp) {
         require(app.id.matches(Regex("[a-zA-Z0-9-]{1,80}"))) { "Invalid app ID" }
         require(app.name.isNotBlank() && app.name.length <= 100) { "Name must contain 1–100 characters" }
+        require(app.tags.length <= 2000 && app.tags.split(',').size <= 100)
+        require(app.scriptIds.length <= 8192 && app.scriptIds.split(',').all { it.isEmpty() || it.matches(Regex("[a-zA-Z0-9-]{1,80}")) })
+        for(template in listOf(app.searchUrl, app.shareUrl)) if(template.isNotBlank()) org.litespace.browser.domain.NativeTemplates.expand(template, "test")
         require(app.fontSize in 50..200)
         require(app.userAgent.length <= 4096 && '\n' !in app.userAgent && '\r' !in app.userAgent) { "Invalid User-Agent" }
         require(app.url.length <= 8192 && app.group.length <= 100) { "URL or group is too long" }
@@ -25,7 +29,7 @@ class LocalRepository(private val db: LiteDatabase) : AppRepository {
         require(normalized.length <= 8192) { "Encoded URL exceeds 8192 characters" }
         dao.save(LiteAppEntity(app.id, app.copy(url = normalized, updatedAt = System.currentTimeMillis())))
     }
-    override suspend fun delete(id: String) = dao.delete(id)
+    override suspend fun delete(id: String) = db.withTransaction { dao.delete(id); db.tools().deleteWatches(id) }
     override suspend fun export(): String {
         val array = JSONArray()
         val configurations = dao.all().map { it.configuration }
@@ -39,14 +43,23 @@ class LocalRepository(private val db: LiteDatabase) : AppRepository {
             }
             array.put(obj)
         }
-        val json = JSONObject().put("version", 1).put("apps", array).toString(2)
+        val tools = JSONArray()
+        val records = db.tools().all()
+        require(records.size <= MAX_BACKUP_APPS) { "A JSON backup supports up to $MAX_BACKUP_APPS tools" }
+        records.forEach { tools.put(ToolsRepository.json(it)) }
+        val root = JSONObject().put("version", 2).put("apps", array).put("tools", tools)
+        preferences?.let { store ->
+            val p = store.flow.first()
+            root.put("settings", JSONObject().put("theme", p.theme).put("language", p.language).put("dynamicColors", p.dynamicColors).put("syncMinutes", p.syncMinutes).put("filterUpdates", p.filterUpdates))
+        }
+        val json = root.toString(2)
         require(json.toByteArray(Charsets.UTF_8).size <= MAX_BACKUP_BYTES) { "Backup exceeds 8 MB; reduce custom icons/code before exporting" }
         return json
     }
     override suspend fun restore(json: String): Int {
         require(json.length <= MAX_BACKUP_BYTES && json.toByteArray(Charsets.UTF_8).size <= MAX_BACKUP_BYTES) { "Backup too large (8 MB limit)" }
         val root = JSONObject(json)
-        require(root.getInt("version") == 1) { "Unsupported backup version" }
+        require(root.getInt("version") in 1..2) { "Unsupported backup version" }
         val list = root.getJSONArray("apps")
         require(list.length() <= MAX_BACKUP_APPS) { "Backup exceeds $MAX_BACKUP_APPS entries" }
         val ids = mutableSetOf<String>()
@@ -68,9 +81,22 @@ class LocalRepository(private val db: LiteDatabase) : AppRepository {
                 popups = o.optBoolean("popups"), fullscreen = o.optBoolean("fullscreen"), navigation = o.optBoolean("navigation", true),
                 gestures = o.optBoolean("gestures", true), lock = o.optBoolean("lock"),
                 downloadNotifications = o.optBoolean("downloadNotifications", true), profile = o.optString("profile"),
-                accent = o.optLong("accent", 0xFF526849))
+                accent = o.optLong("accent", 0xFF526849), tags = o.optString("tags"),
+                removeTracking = o.optBoolean("removeTracking"), images = o.optBoolean("images", true),
+                dataSaver = o.optBoolean("dataSaver"), pullToRefresh = o.optBoolean("pullToRefresh", true),
+                externalLinks = o.optBoolean("externalLinks"), scriptIds = o.optString("scriptIds"),
+                searchUrl = o.optString("searchUrl"), shareUrl = o.optString("shareUrl"), incognito = o.optBoolean("incognito"))
         }
-        db.withTransaction { apps.forEach { save(it) } }
+        require(!root.has("tools") || root.get("tools") is JSONArray) { "Invalid tools collection" }
+        require(!root.has("settings") || root.get("settings") is JSONObject) { "Invalid settings" }
+        val tools = root.optJSONArray("tools")?.let { rows ->
+            require(rows.length() <= MAX_BACKUP_APPS)
+            val seen = mutableSetOf<String>()
+            (0 until rows.length()).map { ToolsRepository.parse(rows.getJSONObject(it)).also { r -> require(seen.add(r.id)) { "Duplicate tool ID" } } }
+        }.orEmpty()
+        val settings = root.optJSONObject("settings")?.let { PreferencesStore.parse(it) }
+        db.withTransaction { apps.forEach { save(it) }; tools.forEach { db.tools().save(it) } }
+        if(settings != null) preferences?.restore(settings)
         return apps.size
     }
     private fun validateTypes(obj: JSONObject) {

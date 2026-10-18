@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.litespace.browser.domain.LiteApp
+import org.litespace.browser.domain.tagNames
 
 @Composable fun LibraryScreen(apps: List<LiteApp>, modifier: Modifier = Modifier, onOpen: (LiteApp) -> Unit,
     onEdit: (LiteApp) -> Unit, onPin: (LiteApp) -> Unit, onPrivate: (LiteApp) -> Unit, onDelete: (LiteApp) -> Unit, onCreate: () -> Unit, onFilterActive: (Boolean) -> Unit = {}) {
@@ -39,10 +40,10 @@ import org.litespace.browser.domain.LiteApp
     var group by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(query, favorites, group) { onFilterActive(query.isNotBlank() || favorites || group != null) }
     DisposableEffect(Unit) { onDispose { onFilterActive(false) } }
-    val groups = remember(apps) { apps.map { it.group }.filter { it.isNotBlank() }.distinct().sorted() }
+    val groups = remember(apps) { apps.flatMap { it.tagNames() + it.group }.filter { it.isNotBlank() }.distinct().sorted() }
     LaunchedEffect(groups) { if(group != null && group !in groups) group = null }
     val visible = remember(apps, query, favorites, group) { apps.filter {
-        (!favorites || it.favorite) && (group == null || it.group == group) && "${it.name} ${it.url} ${it.group}".contains(query.trim(), true)
+        (!favorites || it.favorite) && (group == null || it.group == group || group in it.tagNames()) && "${it.name} ${it.url} ${it.group} ${it.tags}".contains(query.trim(), true)
     }.sortedWith(compareByDescending<LiteApp> { it.favorite }.thenBy { it.name.lowercase() }) }
     LazyVerticalGrid(columns = GridCells.Adaptive(152.dp), modifier = modifier.fillMaxSize().testTag("collection"),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 100.dp),

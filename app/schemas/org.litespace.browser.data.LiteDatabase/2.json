@@ -1,0 +1,348 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "77b8c4c69560d56088595c92861ffa5e",
+    "entities": [
+      {
+        "tableName": "lite_apps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `config_id` TEXT NOT NULL, `config_name` TEXT NOT NULL, `config_url` TEXT NOT NULL, `config_icon` TEXT NOT NULL, `config_group` TEXT NOT NULL, `config_favorite` INTEGER NOT NULL, `config_javascript` INTEGER NOT NULL, `config_desktop` INTEGER NOT NULL, `config_userAgent` TEXT NOT NULL, `config_css` TEXT NOT NULL, `config_script` TEXT NOT NULL, `config_dark` INTEGER NOT NULL, `config_fontSize` INTEGER NOT NULL, `config_zoom` INTEGER NOT NULL, `config_thirdPartyCookies` INTEGER NOT NULL, `config_blockTrackers` INTEGER NOT NULL, `config_clearOnExit` INTEGER NOT NULL, `config_httpsOnly` INTEGER NOT NULL, `config_location` INTEGER NOT NULL, `config_camera` INTEGER NOT NULL, `config_microphone` INTEGER NOT NULL, `config_popups` INTEGER NOT NULL, `config_fullscreen` INTEGER NOT NULL, `config_navigation` INTEGER NOT NULL, `config_gestures` INTEGER NOT NULL, `config_lock` INTEGER NOT NULL, `config_downloadNotifications` INTEGER NOT NULL, `config_profile` TEXT NOT NULL, `config_accent` INTEGER NOT NULL, `config_tags` TEXT NOT NULL, `config_removeTracking` INTEGER NOT NULL, `config_images` INTEGER NOT NULL, `config_dataSaver` INTEGER NOT NULL, `config_pullToRefresh` INTEGER NOT NULL, `config_externalLinks` INTEGER NOT NULL, `config_scriptIds` TEXT NOT NULL, `config_searchUrl` TEXT NOT NULL, `config_shareUrl` TEXT NOT NULL, `config_incognito` INTEGER NOT NULL, `config_updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.id",
+            "columnName": "config_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.name",
+            "columnName": "config_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.url",
+            "columnName": "config_url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.icon",
+            "columnName": "config_icon",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.group",
+            "columnName": "config_group",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.favorite",
+            "columnName": "config_favorite",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.javascript",
+            "columnName": "config_javascript",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.desktop",
+            "columnName": "config_desktop",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.userAgent",
+            "columnName": "config_userAgent",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.css",
+            "columnName": "config_css",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.script",
+            "columnName": "config_script",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.dark",
+            "columnName": "config_dark",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.fontSize",
+            "columnName": "config_fontSize",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.zoom",
+            "columnName": "config_zoom",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.thirdPartyCookies",
+            "columnName": "config_thirdPartyCookies",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.blockTrackers",
+            "columnName": "config_blockTrackers",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.clearOnExit",
+            "columnName": "config_clearOnExit",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.httpsOnly",
+            "columnName": "config_httpsOnly",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.location",
+            "columnName": "config_location",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.camera",
+            "columnName": "config_camera",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.microphone",
+            "columnName": "config_microphone",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.popups",
+            "columnName": "config_popups",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.fullscreen",
+            "columnName": "config_fullscreen",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.navigation",
+            "columnName": "config_navigation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.gestures",
+            "columnName": "config_gestures",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.lock",
+            "columnName": "config_lock",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.downloadNotifications",
+            "columnName": "config_downloadNotifications",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.profile",
+            "columnName": "config_profile",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.accent",
+            "columnName": "config_accent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.tags",
+            "columnName": "config_tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.removeTracking",
+            "columnName": "config_removeTracking",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.images",
+            "columnName": "config_images",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.dataSaver",
+            "columnName": "config_dataSaver",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.pullToRefresh",
+            "columnName": "config_pullToRefresh",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.externalLinks",
+            "columnName": "config_externalLinks",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.scriptIds",
+            "columnName": "config_scriptIds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.searchUrl",
+            "columnName": "config_searchUrl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.shareUrl",
+            "columnName": "config_shareUrl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.incognito",
+            "columnName": "config_incognito",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configuration.updatedAt",
+            "columnName": "config_updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "tools",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `appId` TEXT NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, `payload` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `snapshot` TEXT NOT NULL, `checkedAt` INTEGER NOT NULL, `error` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appId",
+            "columnName": "appId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "url",
+            "columnName": "url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshot",
+            "columnName": "snapshot",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "checkedAt",
+            "columnName": "checkedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "error",
+            "columnName": "error",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '77b8c4c69560d56088595c92861ffa5e')"
+    ]
+  }
+}

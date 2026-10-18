@@ -32,6 +32,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.litespace.browser.util.IconImages
 import org.litespace.browser.domain.LiteApp
+import org.litespace.browser.domain.enabledScriptIds
+import org.litespace.browser.LiteSpaceApplication
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun AppEditor(app: LiteApp, modifier: Modifier = Modifier, onChange: (LiteApp) -> Unit, onSave: (LiteApp) -> Unit) {
@@ -39,6 +42,7 @@ import org.litespace.browser.domain.LiteApp
     var iconError by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val tools by (context.applicationContext as LiteSpaceApplication).tools.items.collectAsStateWithLifecycle(emptyList())
     var readingIcon by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if(uri != null && !readingIcon) scope.launch {
@@ -78,12 +82,16 @@ import org.litespace.browser.domain.LiteApp
         if(app.url.isNotBlank() && !validUrl) Text(tr("Enter a valid website address, such as example.com", "نشانی معتبر وارد کنید؛ مانند example.com"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         SettingsPanel(tr("Make it yours", "به سلیقهٔ خودتان")) {
+        Field(tr("Tags (comma separated)", "برچسب‌ها (جداشده با ویرگول)"), app.tags, limit = 2000) { onChange(app.copy(tags = it)) }
         Field(tr("Group", "گروه"), app.group, limit = 100) { onChange(app.copy(group = it)) }
         Toggle(tr("Favorite", "برگزیده"), app.favorite) { onChange(app.copy(favorite = it)) }
         Text(tr("Accent color", "رنگ برنامه"), style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0xFF526849, 0xFF375F90, 0xFF85546D, 0xFF885B26).forEach { color -> FilterChip(selected = app.accent == color, onClick = { onChange(app.copy(accent = color)) }, label = { Text(if(app.accent == color) "✓" else "●", color = androidx.compose.ui.graphics.Color(color)) }) } }
         }
         Section(tr("Display & navigation", "نمایش و پیمایش")) {
+            Toggle(tr("Load images", "بارگذاری تصویرها"), app.images) { onChange(app.copy(images = it)) }
+            Toggle(tr("Request reduced data (site-dependent)", "درخواست کاهش مصرف داده (وابسته به سایت)"), app.dataSaver) { onChange(app.copy(dataSaver = it)) }
+            Toggle(tr("Pull to refresh", "کشیدن برای نوسازی"), app.pullToRefresh) { onChange(app.copy(pullToRefresh = it)) }
             Toggle(tr("Immersive fullscreen", "تمام‌صفحه"), app.fullscreen) { onChange(app.copy(fullscreen = it)) }
             Toggle(tr("Show navigation toolbar", "نمایش نوار پیمایش"), app.navigation) { onChange(app.copy(navigation = it)) }
             Toggle(tr("Edge swipe back / forward", "حرکت لبه برای عقب و جلو"), app.gestures) { onChange(app.copy(gestures = it)) }
@@ -95,11 +103,20 @@ import org.litespace.browser.domain.LiteApp
             Field(tr("Custom User-Agent (optional)", "User-Agent سفارشی (اختیاری)"), app.userAgent, limit = 4096) { onChange(app.copy(userAgent = it)) }
         }
         Section(tr("Privacy & permissions", "حریم خصوصی و مجوزها")) {
+            Toggle(tr("Remove known tracking URL parameters", "حذف پارامترهای ردیابی نشانی"), app.removeTracking) { onChange(app.copy(removeTracking = it)) }
+            Toggle(tr("Open external origins in another browser", "بازکردن مبدأهای دیگر در مرورگر خارجی"), app.externalLinks) { onChange(app.copy(externalLinks = it)) }
+            Toggle(tr("Always use a private session (requires WebView support)", "همیشه نشست خصوصی (نیازمند پشتیبانی WebView)"), app.incognito) { onChange(app.copy(incognito = it)) }
             Toggle(tr("Block ads and trackers", "مسدودسازی تبلیغ و ردیاب"), app.blockTrackers) { onChange(app.copy(blockTrackers = it)) }
             Toggle(tr("Require HTTPS", "الزام HTTPS"), app.httpsOnly) { onChange(app.copy(httpsOnly = it)) }
             Toggle(tr("Allow third-party cookies", "اجازه کوکی شخص ثالث"), app.thirdPartyCookies) { onChange(app.copy(thirdPartyCookies = it)) }
             Toggle(tr("Clear profile data on normal exit", "پاک‌کردن داده پروفایل هنگام خروج عادی"), app.clearOnExit) { onChange(app.copy(clearOnExit = it)) }
             Text(tr("Shared profile clearing affects all apps in that profile. On older WebView it affects all apps and may retain service-worker data. Android cannot guarantee exit cleanup after process termination.", "پاک‌کردن پروفایل مشترک بر همه برنامه‌های آن اثر دارد؛ در WebView قدیمی روی همه برنامه‌ها و ممکن است داده سرویس‌ورکر باقی بماند. پس از توقف اجباری، پاک‌سازی هنگام خروج تضمین نمی‌شود."), style = MaterialTheme.typography.bodySmall)
+            if(android.os.Build.VERSION.SDK_INT >= 28) {
+                Text(tr("Fixed isolated sandboxes (Android 9+)", "محیط‌های جداگانهٔ ثابت (اندروید ۹+)"))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    org.litespace.browser.web.LegacySandboxes.names.forEach { name -> FilterChip(app.profile == name, { onChange(app.copy(profile = if(app.profile == name) "" else name)) }, label = { Text(name) }) }
+                }
+            }
             Field(tr("Shared profile name (blank = own profile)", "نام پروفایل مشترک (خالی = مستقل)"), app.profile, limit = 60) { onChange(app.copy(profile = it)) }
             Toggle(tr("Require biometrics or device PIN", "نیاز به اثر انگشت یا رمز دستگاه"), app.lock) { onChange(app.copy(lock = it)) }
             Text(tr("Locks this entry. Other entries sharing its website storage can still access the same login session.", "این ورودی قفل می‌شود؛ برنامه‌هایی که داده سایت را با آن مشترک دارند همچنان به همان نشست ورود دسترسی دارند."), style = MaterialTheme.typography.bodySmall)
@@ -108,6 +125,17 @@ import org.litespace.browser.domain.LiteApp
             Toggle(tr("Allow microphone requests", "اجازه درخواست میکروفون"), app.microphone) { onChange(app.copy(microphone = it)) }
             Toggle(tr("Allow pop-ups (with confirmation)", "اجازه پنجره جدید (با تأیید)"), app.popups) { onChange(app.copy(popups = it)) }
             Toggle(tr("Download completion notifications", "اعلان پایان دانلود"), app.downloadNotifications) { onChange(app.copy(downloadNotifications = it)) }
+        }
+        Section(tr("Native integrations", "ارتباط با اندروید")) {
+            Field(tr("Search URL (%s = query)", "نشانی جستجو (%s = عبارت)"), app.searchUrl, limit = 8192, keyboard = KeyboardType.Uri) { onChange(app.copy(searchUrl = it)) }
+            Field(tr("Share URL (%s = text, %u = URL, %t = title)", "نشانی اشتراک (%s متن، %u نشانی، %t عنوان)"), app.shareUrl, limit = 8192, keyboard = KeyboardType.Uri) { onChange(app.copy(shareUrl = it)) }
+        }
+        Section(tr("Script library", "کتابخانهٔ اسکریپت")) {
+            tools.filter { it.kind == "script" }.forEach { record -> Toggle(record.title, record.id in app.enabledScriptIds()) { checked ->
+                val ids = app.enabledScriptIds().toMutableSet(); if(checked) ids.add(record.id) else ids.remove(record.id)
+                onChange(app.copy(scriptIds = ids.joinToString(",")))
+            } }
+            TextButton(onClick = { context.startActivity(android.content.Intent(context, ToolsActivity::class.java)) }) { Text(tr("Manage scripts", "مدیریت اسکریپت‌ها")) }
         }
         Section(tr("Custom code", "کد سفارشی")) {
             Toggle(tr("Enable JavaScript", "فعال‌سازی جاوااسکریپت"), app.javascript) { onChange(app.copy(javascript = it)) }

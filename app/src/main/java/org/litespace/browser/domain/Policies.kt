@@ -70,10 +70,11 @@ class HostRules(private val hosts: Set<String>) {
     }
     companion object {
         fun parse(text: String): Set<String> = text.lineSequence().map { it.substringBefore('#').trim() }
-            .filter { it.isNotEmpty() }.mapNotNull { line ->
+            .filter { it.isNotEmpty() }.flatMap { line ->
                 val parts = line.split(Regex("\\s+"))
-                val host = if (parts.size > 1 && parts[0] in setOf("0.0.0.0", "127.0.0.1")) parts[1] else if(parts.size == 1) parts[0] else null
-                host?.lowercase()?.takeIf { it.contains('.') && it.matches(Regex("[a-z0-9.-]+")) && it != "localhost.localdomain" }
+                (if(parts.size > 1 && parts[0] in setOf("0.0.0.0", "127.0.0.1", "::1")) parts.drop(1) else if(parts.size == 1) parts else emptyList()).asSequence()
+            }.map { it.lowercase(java.util.Locale.ROOT) }.filter {
+                it.contains('.') && it.matches(Regex("[a-z0-9.-]+")) && it != "localhost.localdomain" && !it.matches(Regex("[0-9.]+"))
             }.toSet()
     }
 }

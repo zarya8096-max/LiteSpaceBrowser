@@ -82,3 +82,49 @@ the device suite verifies they do not persist after Home/resume. Protected/priva
 dialog windows use FLAG_SECURE. Native camera/microphone, physical biometrics,
 external download servers and video compatibility still need the acceptance
 matrix above.
+
+The 1.1 interface suite adds `DesignDeviceTest`: search + favorite filtering,
+empty-result recovery, persisted dark/Persian preferences, Activity recreation and
+actual mirrored bottom-navigation coordinates. The large-draft test explicitly
+confirms the discard dialog before checking that the ViewModel draft is cleared.
+
+For optional real screenshots on a disposable emulator:
+
+```sh
+adb shell am instrument -w -r -e captureDesign true \
+  -e class org.litespace.browser.DesignDeviceTest \
+  org.litespace.browser.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+PNG files are saved in the debug application's cache. For example:
+
+```sh
+adb exec-out run-as org.litespace.browser cat cache/design-library-light.png > library.png
+```
+
+Screenshot capture is opt-in; regular CI tests exercise behavior without depending
+on the host's graphics capture support. The optional capture checks actual PNG
+output and uses the native screencap path when an older provider cannot return a
+UiAutomation bitmap.
+
+## 1.2 Premium regression tests
+
+`PremiumPoliciesTest` verifies raw-query-safe tracking removal, URL-encoded template
+substitution, multiple-host lines and multiple tags. `PremiumDeviceTest` opens a
+real schema-1 SQLite database, migrates it with Room validation, checks RSS/Atom and
+monitor parsing/DTD rejection, sanitizes Reader HTML and exercises version-2 tool
+backup rollback. `PremiumBrowserDeviceTest` runs actual shared scripts in WebView,
+checks cross-origin exclusion and opens Reader from a real long article DOM.
+`LegacySandboxDeviceTest` uses debug-only non-exported Activities in the same red/
+green processes as the application to prove same-origin cookies remain independent
+on API 28+. It is skipped on API 26, where data-directory suffixes do not exist.
+
+Manual acceptance additionally requires: choose a public feed; test/save; check once
+for the baseline; publish a new item on a controlled server; check again and inspect
+native notification/channel/grouping. Repeat with a monitored CSS selector, logged-in
+same-origin source and a redirect to a second HTTPS origin (no cookie forwarding).
+Disable notifications at Android level, disable the source, lose connectivity and
+verify visible error/old baseline preservation. Exercise PDF output using a real
+print destination, default-browser routing from another app, exported text sharing,
+script import via document picker, and weekly-list retries. Native polling is not
+instant push and must be checked with Doze/background restrictions enabled.

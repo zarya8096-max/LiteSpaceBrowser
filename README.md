@@ -4,12 +4,17 @@ An original, open-source Android browser that turns websites into configurable
 Lite Apps. Kotlin · Jetpack Compose / Material 3 · Room · DataStore · Android 8+.
 No accounts, analytics, subscription tiers, root access or paid APIs.
 
-<img src="docs/screenshots/dashboard-api26.png" width="260" alt="LiteSpace dashboard running on Android 8" />
+<img src="docs/screenshots/design-library-light.png" width="250" alt="LiteSpace collection in light mode" />
+<img src="docs/screenshots/design-library-persian-dark.png" width="250" alt="Persian RTL collection in dark mode" />
+
+Real Android screenshots with temporary test-created Lite Apps. See the
+[design gallery](docs/DESIGN.md) for settings and the app editor.
 
 ## Features
 
 - Unlimited locally stored Lite Apps, search, groups, favorites, custom icons and accents.
-- English / Persian interface and RTL; dynamic Material You colors and light/dark modes.
+- Adaptive card collection, search/group/favorite filters, bottom navigation and a keyboard-aware editor.
+- English / Persian interface, bundled Vazirmatn typography and RTL; dynamic Material You colors and light/dark modes.
 - Per-app JavaScript, CSS/scripts, UA, desktop mode, text size, zoom and darkening.
 - Runtime-detected WebView profiles, opt-in shared profiles, temporary private sessions.
 - Hosts-based content blocking with an explicit maintained-list update command.
@@ -17,12 +22,21 @@ No accounts, analytics, subscription tiers, root access or paid APIs.
 - Per-origin camera, microphone and geolocation permission prompts; file picker uploads.
 - Android downloads, pull-to-refresh, edge navigation, fullscreen video and immersive mode.
 - Device biometric/PIN gates and launcher-pinned shortcuts.
-- Transactional JSON backup/restore with validation and embedded custom icons.
+- Reader with four palettes, text/font controls, local sanitized articles and shared-URL entry.
+- Android printing/PDF, bookmarks, multiple tags, tracking parameter removal.
+- Shared automatic/manual script library with JavaScript file import and per-app selection.
+- Selectable custom HOSTS sources with opt-in weekly updates.
+- Opt-in RSS/Atom and HTML/CSS monitors with native grouped notifications.
+- Default-browser links, configurable site search/share templates, image controls and Save-Data hint.
+- Five fixed isolated color sandboxes on Android 9+, including older WebViews.
+- Versioned JSON backup/restore with custom icons, tool definitions and global preferences.
 
 **Read [platform limitations](docs/LIMITATIONS.md) before relying on privacy or website
 compatibility.** Web push notifications are unsupported by Android WebView. Isolation
 requires provider support; older WebViews use disclosed shared storage. This project
 has no affiliation with Hermit and uses no proprietary code, branding or assets.
+It is not an exact Hermit clone or a verified replacement for every premium feature;
+see the [feature scope and parity audit](docs/FEATURE-PARITY.md) for concrete gaps.
 
 ## Build and install
 
@@ -37,8 +51,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Gradle 8.10.2 is pinned by the included wrapper. The debug APK uses a development
 signing key and is suitable for evaluation; debug apps are not a production release.
-Download the [1.0.1 debug APK](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/tag/v1.0.1).
-See the [deep debugging report](docs/DEBUGGING.md) for the security, data-integrity
+Download the [latest published build](https://github.com/zarya8096-max/LiteSpaceBrowser/releases).
+The 1.2 source adds the [officially compared Premium feature categories](docs/HERMIT-COMPARISON.md).
+See the [interface redesign](docs/DESIGN.md) and [deep debugging report](docs/DEBUGGING.md) for the security, data-integrity
 and lifecycle corrections in this version.
 
 ## Signed release
@@ -65,8 +80,8 @@ A release signed with your key cannot update the differently signed debug app; e
 configuration before uninstalling it. For Play distribution, produce and sign an AAB
 and complete current store privacy/permission requirements separately.
 
-See the [verification record](docs/VERIFICATION.md) for completed build checks,
-Android 8/15/16 device tests and the remaining physical-device acceptance work.
+See the [verification history](docs/VERIFICATION.md) and [testing instructions](docs/TESTING.md).
+Each release must list its actual completed checks; earlier results do not certify new features.
 
 ## Structure and testing
 
@@ -77,6 +92,12 @@ Android 8/15/16 device tests and the remaining physical-device acceptance work.
 - `domain/`: repository contract, URL security policy, domain matching.
 - `ui/`: ViewModel, Compose screens, theme, localization and device authentication.
 - `web/`: WebView lifecycle, profiles, browser permissions and launcher shortcuts.
+
+The bundled Vazirmatn 33.003 fonts use the SIL Open Font License; their copyright
+and license are included in `app/src/main/assets/licenses/Vazirmatn-OFL.txt`.
+
+Mozilla Readability 0.6.0 is bundled under its MIT license, retained in
+`app/src/main/assets/licenses/Readability-LICENSE`. Jsoup uses the MIT license.
 
 The source uses MIT licensing. AndroidX/Kotlin dependencies retain their respective
 licenses. The optional StevenBlack list update retains that project's and upstream
