@@ -29,7 +29,11 @@ object SyncScheduler {
         val prefs = app.preferences.flow.first()
         val manager = WorkManager.getInstance(context)
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build()
-        val active = app.tools.dao.all().any { it.enabled && it.kind in setOf("feed", "monitor") }
+        val entries = app.repository.apps.first().associateBy { it.id }
+        val active = app.tools.dao.all().any { source ->
+            val entry = entries[source.appId]
+            source.enabled && source.kind in setOf("feed", "monitor") && entry != null && !entry.lock && !entry.incognito && !(Build.VERSION.SDK_INT >= 28 && entry.profile in org.litespace.browser.web.LegacySandboxes.names)
+        }
         if(active) manager.enqueueUniquePeriodicWork("site-updates", ExistingPeriodicWorkPolicy.UPDATE,
             PeriodicWorkRequestBuilder<SiteSyncWorker>(prefs.syncMinutes.toLong(), TimeUnit.MINUTES).setConstraints(constraints).build())
         else manager.cancelUniqueWork("site-updates")

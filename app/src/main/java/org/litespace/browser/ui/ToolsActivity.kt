@@ -108,7 +108,7 @@ class ToolsActivity : FragmentActivity() {
                 Text(label("Interval (minutes)", "فاصلهٔ بررسی (دقیقه)"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf(15,30,60,180,360,1440).forEach { minutes -> FilterChip(prefs.syncMinutes == minutes, { work { container.preferences.background(minutes, prefs.filterUpdates); SyncScheduler.reconcile(context); label("Saved", "ذخیره شد") } }, label = { Text(localNumber(minutes)) }) } }
                 Button(onClick = { askNotifications(); SyncScheduler.checkNow(context); work { label("Check queued; refresh below for status", "بررسی در صف قرار گرفت؛ نتیجه در وضعیت زیر نمایش داده می‌شود") } }) { Text(label("Check now", "بررسی اکنون")) }
-                TextButton(onClick = { val id = appId.ifBlank { apps.firstOrNull()?.id.orEmpty() }; if(id.isNotBlank()) context.startActivity(Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "site-$id")) }) { Text(label("Android notification settings", "تنظیمات اعلان اندروید")) }
+                TextButton(onClick = { val id = appId.ifBlank { apps.firstOrNull()?.id.orEmpty() }; if(appId.isNotBlank()) context.startActivity(Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "site-$appId")) else context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text(label("Android notification settings", "تنظیمات اعلان اندروید")) }
             } }
             if(kind == "script") item { Text(label("Scripts are shared definitions. Enable them per Lite App in its editor. Automatic scripts are restricted to that app's configured origin. Manual scripts run only after you select and confirm them in the browser.", "تعریف اسکریپت‌ها مشترک است؛ در ویرایشگر هر برنامه فعالشان کنید. اجرای خودکار به مبدأ همان برنامه محدود است. اجرای دستی فقط با انتخاب و تأیید شما در مرورگر انجام می‌شود.")) }
             val visible = records.filter { it.kind == kind && (kind in setOf("script", "list") || appId.isBlank() || it.appId.isBlank() || it.appId == appId) }
@@ -138,7 +138,13 @@ class ToolsActivity : FragmentActivity() {
         }
     }
     editor?.let { initial -> ToolEditor(initial, model, apps, onImport, { editor = null }, onSave = { record -> work {
-        container.tools.save(record); if(record.kind in setOf("feed", "monitor") && record.enabled) askNotifications()
+        container.tools.save(record)
+        if(record.kind in setOf("feed", "monitor")) {
+            apps.firstOrNull { it.id == record.appId }?.let { app ->
+                context.getSystemService(android.app.NotificationManager::class.java).createNotificationChannel(android.app.NotificationChannel("site-${app.id}", app.name, android.app.NotificationManager.IMPORTANCE_DEFAULT))
+            }
+            if(record.enabled) askNotifications()
+        }
         SyncScheduler.reconcile(context); editor = null; label("Saved", "ذخیره شد")
     } }) }
     deleting?.let { record -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(label("Delete ${record.title}?", "حذف ${record.title}؟")) }, confirmButton = { TextButton(onClick = { work { container.tools.dao.delete(record.id); SyncScheduler.reconcile(context); deleting = null; label("Deleted", "حذف شد") } }) { Text(label("Delete", "حذف")) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text(label("Cancel", "لغو")) } }) }

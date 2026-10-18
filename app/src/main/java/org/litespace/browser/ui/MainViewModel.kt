@@ -24,7 +24,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun hasDraftChanges() = editor.value != null && editor.value != editorOriginal
     fun discardDraft() { editor.value = null; editorOriginal = null }
     fun save(app: LiteApp, done: () -> Unit) = viewModelScope.launch {
-        runCatching { repository.save(app) }.onSuccess { done() }.onFailure { messages.emit(it.message ?: "Unable to save") }
+        runCatching { repository.save(app) }.onSuccess { SyncScheduler.reconcile(getApplication()); done() }.onFailure { messages.emit(it.message ?: "Unable to save") }
     }
     fun delete(app: LiteApp) = viewModelScope.launch {
         runCatching { repository.delete(app.id) }
