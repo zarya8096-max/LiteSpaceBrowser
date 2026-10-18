@@ -37,8 +37,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Gradle 8.10.2 is pinned by the included wrapper. The debug APK uses a development
 signing key and is suitable for evaluation; debug apps are not a production release.
-Downloaded release assets and test results are available on the repository's Releases
-page when a build is published.
+Download the [1.0.1 debug APK](https://github.com/zarya8096-max/LiteSpaceBrowser/releases/tag/v1.0.1).
+See the [deep debugging report](docs/DEBUGGING.md) for the security, data-integrity
+and lifecycle corrections in this version.
 
 ## Signed release
 
@@ -64,8 +65,8 @@ A release signed with your key cannot update the differently signed debug app; e
 configuration before uninstalling it. For Play distribution, produce and sign an AAB
 and complete current store privacy/permission requirements separately.
 
-See the [verification record](docs/VERIFICATION.md) for completed checks and the
-Android 15 emulator limitation.
+See the [verification record](docs/VERIFICATION.md) for completed build checks,
+Android 8/15/16 device tests and the remaining physical-device acceptance work.
 
 ## Structure and testing
 

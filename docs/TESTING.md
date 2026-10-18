@@ -71,7 +71,8 @@ remain separate checks.
 
 CI now exercises API 26, 35 and 36. API 26 also runs the opted-in device-PIN
 regression on its disposable emulator, with a generated temporary PIN removed in
-`finally`. `scripts/run_pin_regression.py` refuses non-emulators. The test waits
+`finally`. `scripts/run_pin_regression.py` refuses non-emulators and reinstalls the matching
+built APKs after Gradle's connected-test cleanup. The test waits
 for Activity creation and actual stop events and focuses the native PIN entry
 before submitting, rather than assuming animation/accessibility idleness means
 that lifecycle transitions have completed.

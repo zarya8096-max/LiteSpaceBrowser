@@ -31,6 +31,13 @@ now waits for actual document content, asserts its renderer origin and verifies
 that the configured script is absent. This changes the test rather than weakening
 the application's origin checks.
 
+Two additional harness issues were separated from application defects. On a slow
+software emulator, injected Back input could return before Compose discarded the
+draft; the test now awaits that state transition with a bounded deadline. Gradle
+also removes its instrumentation package after connected tests, so the separate
+PIN runner reinstalls the matching APKs before execution. The old runner's
+"Unable to find instrumentation info" was not an application assertion failure.
+
 No external analytics, native JavaScript bridge, website polling or simulated web
 push was added. Locking protects UI access, not encryption or network anonymity.
 WebView's `onPause` is best-effort and does not guarantee all JavaScript timers or
