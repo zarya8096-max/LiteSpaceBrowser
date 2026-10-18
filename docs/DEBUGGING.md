@@ -42,3 +42,13 @@ No external analytics, native JavaScript bridge, website polling or simulated we
 push was added. Locking protects UI access, not encryption or network anonymity.
 WebView's `onPause` is best-effort and does not guarantee all JavaScript timers or
 network work stops. Exit data deletion is asynchronous; force-stop can interrupt it.
+
+## Premium modules
+
+Tool drafts and Reader documents now live in ViewModels rather than Activity
+Bundles. Document-picker results are registered at Activity scope so an
+intervening credential screen cannot discard the import callback. Protected
+Reader windows require foreground authentication. Tool authentication tracks an
+in-flight prompt to avoid reopening the native credential screen during its own
+return on older Android versions. Filter collectors ignore unrelated tool changes
+so a bookmark/feed check does not repeatedly parse large hosts files.

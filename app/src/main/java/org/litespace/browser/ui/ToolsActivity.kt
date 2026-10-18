@@ -46,6 +46,7 @@ class ToolsActivity : FragmentActivity() {
     }
     private var access by mutableStateOf(false)
     private var needsAuth = true
+    private var authenticating = false
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,12 +65,13 @@ class ToolsActivity : FragmentActivity() {
     }
     override fun onResume() {
         super.onResume()
-        if(needsAuth) {
+        if(needsAuth && !authenticating) {
             needsAuth = false
+            authenticating = true
             lifecycleScope.launch {
                 val protected = (application as LiteSpaceApplication).repository.apps.first().any { it.lock }
-                if(protected) DeviceAuth.verify(this@ToolsActivity, "Unlock browser tools", failure = { finish() }) { access = true }
-                else access = true
+                if(protected) DeviceAuth.verify(this@ToolsActivity, "Unlock browser tools", failure = { authenticating = false; finish() }) { authenticating = false; needsAuth = false; access = true }
+                else { authenticating = false; needsAuth = false; access = true }
             }
         }
     }
