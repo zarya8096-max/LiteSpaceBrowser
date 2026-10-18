@@ -81,6 +81,10 @@ class DesignDeviceTest {
                 runBlocking { withTimeout(30_000) { app.preferences.flow.first { it.language == "fa" } } }
                 scenario.recreate()
                 findText("ظاهر")
+                scenario.onActivity {
+                    if(android.os.Build.VERSION.SDK_INT < 29) assertTrue("Dark-mode system navigation needs readable white controls",
+                        androidx.core.graphics.ColorUtils.calculateContrast(android.graphics.Color.WHITE, it.window.navigationBarColor) >= 4.5)
+                }
                 capture("design-settings-persian-dark")
                 device.wait(Until.findObject(By.desc("بازگشت")), 30_000)!!.click()
                 assertNotNull(device.wait(Until.findObject(By.text("مجموعهٔ شما")), 30_000))

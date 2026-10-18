@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Font
@@ -74,7 +75,16 @@ private val PersianTypography = SpaceTypography.copy(
 @Composable fun LiteSpaceTheme(preferences: Preferences, accent: Long? = null, content: @Composable () -> Unit) {
     val dark = preferences.theme == "dark" || (preferences.theme == "system" && isSystemInDarkTheme())
     val activity = LocalContext.current as? android.app.Activity
-    SideEffect { activity?.let { androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView).apply {
+    SideEffect { activity?.let {
+        if(Build.VERSION.SDK_INT < 29) {
+            // Older edge-to-edge implementations choose their scrim from the
+            // system theme; app-selected dark mode needs its own solid backdrop.
+            it.window.navigationBarColor = (if(dark) Night.background else Day.background).toArgb()
+        } else {
+            it.window.isNavigationBarContrastEnforced = false
+            it.window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        }
+        androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView).apply {
         isAppearanceLightStatusBars = !dark; isAppearanceLightNavigationBars = !dark
     } } }
     val colors = if(preferences.dynamicColors && Build.VERSION.SDK_INT >= 31) {
