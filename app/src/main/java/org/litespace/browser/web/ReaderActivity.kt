@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import org.jsoup.Jsoup
 import org.jsoup.safety.Safelist
 import org.litespace.browser.LiteSpaceApplication
@@ -56,6 +57,12 @@ class ReaderActivity : FragmentActivity() {
         locked = needsAuth
         model.load(intent.getStringExtra("reader_token"), intent.getStringExtra("url"))
         val container = application as LiteSpaceApplication
+        intent.getStringExtra("source_app_id")?.let { id -> lifecycleScope.launch {
+            val revision = intent.getLongExtra("source_revision", -1)
+            container.repository.apps.collect { entries ->
+                if(entries.firstOrNull { it.id == id }?.updatedAt != revision) finish()
+            }
+        } }
         setContent {
             val prefs by container.preferences.flow.collectAsStateWithLifecycle(Preferences())
             LiteSpaceTheme(prefs) { Box(Modifier.fillMaxSize()) {
@@ -113,11 +120,11 @@ class ReaderActivity : FragmentActivity() {
     companion object {
         private const val READER_URL = "https://appassets.androidplatform.net/reader/article"
         fun sanitize(html: String): String = Jsoup.clean(html, Safelist.basic().removeTags("img").addTags("h1", "h2", "h3", "h4", "pre", "table", "tbody", "tr", "td", "th").removeAttributes("a", "target")).take(1_900_000)
-        fun open(activity: android.app.Activity, html: String, protected: Boolean = false) {
+        fun open(activity: android.app.Activity, html: String, protected: Boolean = false, appId: String? = null, revision: Long = -1) {
             val token = UUID.randomUUID().toString()
             // No Activity Bundle or Intent extras containing megabytes of article data.
             File(activity.cacheDir, "reader-$token.html").writeText(sanitize(html))
-            activity.startActivity(Intent(activity, ReaderActivity::class.java).putExtra("reader_token", token).putExtra("protected", protected))
+            activity.startActivity(Intent(activity, ReaderActivity::class.java).putExtra("reader_token", token).putExtra("protected", protected).putExtra("source_app_id", appId).putExtra("source_revision", revision))
         }
     }
 }

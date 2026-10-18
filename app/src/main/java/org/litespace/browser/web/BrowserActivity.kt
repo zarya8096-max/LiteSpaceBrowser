@@ -481,7 +481,7 @@ open class BrowserActivity : FragmentActivity() {
     private fun readArticle() {
         val view = web ?: return
         val source = view.url ?: return
-        if(!app.javascript) { startActivity(Intent(this, ReaderActivity::class.java).putExtra("url", source).putExtra("protected", app.lock)); return }
+        if(!app.javascript) { startActivity(Intent(this, ReaderActivity::class.java).putExtra("url", source).putExtra("protected", app.lock).putExtra("source_app_id", if(transient) null else app.id).putExtra("source_revision", app.updatedAt)); return }
         val origin = UrlPolicy.origin(source) ?: return
         lifecycleScope.launch {
             val parser = withContext(Dispatchers.IO) { assets.open("Readability.js").bufferedReader().use { it.readText() } }
@@ -489,7 +489,7 @@ open class BrowserActivity : FragmentActivity() {
             view.evaluateJavascript("(function(){if(location.origin!==${JSONObject.quote(origin)})return null;$parser;var a=new Readability(document.cloneNode(true)).parse();return a ? '<h1>'+a.title.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</h1>'+a.content : null;})()") { result ->
                 if(locked || isFinishing || UrlPolicy.origin(view.url) != origin) return@evaluateJavascript
                 val html = runCatching { org.json.JSONTokener(result).nextValue() as? String }.getOrNull()
-                if(html.isNullOrBlank()) toast(label("No readable article found", "مقالهٔ قابل‌مطالعه یافت نشد")) else ReaderActivity.open(this@BrowserActivity, html, app.lock)
+                if(html.isNullOrBlank()) toast(label("No readable article found", "مقالهٔ قابل‌مطالعه یافت نشد")) else ReaderActivity.open(this@BrowserActivity, html, app.lock, if(transient) null else app.id, app.updatedAt)
             }
         }
     }

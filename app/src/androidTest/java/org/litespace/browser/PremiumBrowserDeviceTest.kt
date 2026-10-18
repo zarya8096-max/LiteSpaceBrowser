@@ -50,6 +50,7 @@ class PremiumBrowserDeviceTest {
                 waitUntil { evaluate(scenario, "document.title") == "\"Actual reader fixture\"" }
                 val menu = device.wait(Until.findObject(By.desc("Menu")), 30000); assertNotNull(menu); menu.click()
                 val reader = device.wait(Until.findObject(By.text("Reader mode")), 15000); assertNotNull(reader); reader.click()
+                assertTrue("Reader Activity must replace the source browser before checking article text", device.wait(Until.hasObject(By.text("Reader")), 40000))
                 assertTrue(device.wait(Until.hasObject(By.textContains("Actual reader fixture")), 40000))
                 InstrumentationRegistry.getInstrumentation().runOnMainSync {
                     val activity = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).first { it is org.litespace.browser.web.ReaderActivity }

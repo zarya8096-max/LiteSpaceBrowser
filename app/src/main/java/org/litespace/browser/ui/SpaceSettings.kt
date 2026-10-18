@@ -85,7 +85,7 @@ import org.litespace.browser.data.Preferences
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 Text(tr("What stays on your device", "چه چیزهایی روی دستگاه می‌ماند؟"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                Text(tr("Cookies, login sessions, theme and language are not included. Backups are plain JSON: addresses and custom code may contain secrets. Store them safely and restore only trusted files.", "کوکی‌ها، نشست‌های ورود، ظاهر و زبان در بکاپ نیستند. فایل JSON رمزگذاری نمی‌شود؛ نشانی‌ها و کد سفارشی ممکن است محرمانه باشند. آن را امن نگه دارید و فقط فایل قابل اعتماد را بازیابی کنید."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(tr("Includes appearance, language, scripts, feeds, monitors and list sources. Cookies and login sessions are not included. Backups are plain JSON: addresses and custom code may contain secrets. Store them safely and restore only trusted files.", "ظاهر، زبان، اسکریپت، خوراک، پایش و منابع فیلتر در بکاپ هستند؛ کوکی و نشست ورود نیستند. فایل JSON رمزگذاری نمی‌شود؛ نشانی‌ها و کد سفارشی ممکن است محرمانه باشند. آن را امن نگه دارید و فقط فایل قابل اعتماد را بازیابی کنید."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
         } }
     }

@@ -17,8 +17,8 @@ Device authentication gates protected app launches, including pinned shortcuts.
 Permission grants are requested per origin and per session, constrained by per-app toggles.
 Custom scripts have the same privileges as the page, with no native JS bridge.
 
-No analytics, server, account, background polling or paid service. Filter updates are
-explicit foreground operations; WorkManager is unnecessary. The homepage/error document
+No analytics, server, account or paid service. Background site checks and weekly
+filter updates are opt-in and use constrained WorkManager tasks. The homepage/error document
 is served through WebViewAssetLoader under its reserved HTTPS domain.
 
 ## 1.2 Premium modules
