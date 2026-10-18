@@ -5,8 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.launch
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
@@ -42,6 +43,20 @@ class DesignDeviceTest {
             }
             assertTrue("Screenshot must contain an actual PNG", output.inputStream().use { it.read() == 137 && it.read() == 80 })
         }
+        fun awaitPreference(label: String, condition: (org.litespace.browser.data.Preferences) -> Boolean) {
+            val observed = java.util.concurrent.atomic.AtomicReference<org.litespace.browser.data.Preferences>()
+            val watcher = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                app.preferences.flow.collect { observed.set(it) }
+            }
+            try {
+                // Keep Compose's test frame clock advancing while the callback
+                // and DataStore write complete; runBlocking would stall it.
+                compose.waitUntil(30_000) { observed.get()?.let(condition) == true }
+            } catch(error: androidx.compose.ui.test.ComposeTimeoutException) {
+                capture("design-failure-$label")
+                throw AssertionError("$label did not persist; current=${observed.get()}\n" + compose.onRoot().printToString().take(6500), error)
+            } finally { watcher.cancel() }
+        }
         runBlocking {
             app.preferences.setLanguage("en"); app.preferences.setTheme("light"); app.preferences.setDynamicColors(false)
             samples.forEach { app.repository.save(it) }
@@ -62,10 +77,12 @@ class DesignDeviceTest {
                 compose.onNodeWithContentDescription("Settings").performClick()
                 compose.onNodeWithTag("settings").performScrollToNode(hasText("Dark"))
                 compose.onNodeWithText("Dark").performClick()
-                runBlocking { withTimeout(30_000) { app.preferences.flow.first { it.theme == "dark" } } }
+                compose.waitForIdle()
+                awaitPreference("theme") { it.theme == "dark" }
                 compose.onNodeWithTag("settings").performScrollToNode(hasText("فارسی"))
                 compose.onNodeWithText("فارسی").performClick()
-                runBlocking { withTimeout(30_000) { app.preferences.flow.first { it.language == "fa" } } }
+                compose.waitForIdle()
+                awaitPreference("language") { it.language == "fa" }
                 scenario.recreate()
                 compose.waitForIdle()
                 compose.onNodeWithTag("settings").performScrollToIndex(0)
