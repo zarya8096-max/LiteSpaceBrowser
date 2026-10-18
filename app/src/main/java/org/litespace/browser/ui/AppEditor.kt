@@ -56,8 +56,8 @@ import org.litespace.browser.domain.LiteApp
         }
     }
     val validUrl = remember(app.url, app.httpsOnly) { app.url.isNotBlank() && runCatching { UrlPolicy.normalize(app.url, app.httpsOnly) }.isSuccess }
-    Box(modifier.fillMaxSize().imePadding()) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    Column(modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Surface(shape = RoundedCornerShape(26.dp), color = MaterialTheme.colorScheme.primaryContainer) {
             Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 AppIcon(app.copy(name = app.name.ifBlank { "L" }), 60.dp)
@@ -116,7 +116,7 @@ import org.litespace.browser.domain.LiteApp
             Field(tr("Custom JavaScript", "جاوااسکریپت سفارشی"), app.script, false) { onChange(app.copy(script = it)) }
         }
     }
-    Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp, shadowElevation = 8.dp) {
+    Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp, shadowElevation = 8.dp) {
         Button(onClick = { onSave(latestApp) }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp).fillMaxWidth().heightIn(min = 54.dp), enabled = !readingIcon && app.name.isNotBlank() && validUrl) {
             Icon(Icons.Default.Check, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(tr("Save Lite App", "ذخیره برنامه سبک"))
         }
