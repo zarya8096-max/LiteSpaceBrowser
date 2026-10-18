@@ -1,3 +1,4 @@
+// LiteSpace modifications: replace matchAll and nullish coalescing for legacy WebView compatibility.
 /*
  * Copyright (c) 2010 Arc90 Inc
  *
@@ -595,7 +596,10 @@ Readability.prototype = {
     // If there's a separator in the title, first remove the final part
     if (/ [\|\-\\\/>»] /.test(curTitle)) {
       titleHadHierarchicalSeparators = / [\\\/>»] /.test(curTitle);
-      let allSeparators = Array.from(origTitle.matchAll(/ [\|\-\\\/>»] /gi));
+      let allSeparators = [];
+      let separatorPattern = / [\|\-\\\/>»] /gi;
+      let separatorMatch;
+      while ((separatorMatch = separatorPattern.exec(origTitle)) !== null) allSeparators.push(separatorMatch);
       curTitle = origTitle.substring(0, allSeparators.pop().index);
 
       // If the resulting title is too short, remove the first part instead:
@@ -1097,7 +1101,7 @@ Readability.prototype = {
               next = this._getNextNode(next);
             }
           }
-          this._articleByline = (itemPropNameNode ?? node).textContent.trim();
+          this._articleByline = (itemPropNameNode != null ? itemPropNameNode : node).textContent.trim();
           node = this._removeAndGetNext(node);
           continue;
         }

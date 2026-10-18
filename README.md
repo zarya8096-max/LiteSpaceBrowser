@@ -96,7 +96,7 @@ Each release must list its actual completed checks; earlier results do not certi
 The bundled Vazirmatn 33.003 fonts use the SIL Open Font License; their copyright
 and license are included in `app/src/main/assets/licenses/Vazirmatn-OFL.txt`.
 
-Mozilla Readability 0.6.0 is bundled under its MIT license, retained in
+Mozilla Readability 0.6.0 is bundled under its Apache 2.0 license, retained in
 `app/src/main/assets/licenses/Readability-LICENSE`. Jsoup uses the MIT license.
 
 The source uses MIT licensing. AndroidX/Kotlin dependencies retain their respective

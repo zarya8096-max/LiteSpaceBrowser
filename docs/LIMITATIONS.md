@@ -120,7 +120,7 @@ Reopen to apply new configuration. Global language/theme changes apply on next l
 
 ## Reader, integrations and reduced data
 
-Reader uses the bundled MIT-licensed Mozilla Readability 0.6.0 on an already loaded
+Reader uses the bundled Apache-2.0-licensed Mozilla Readability 0.6.0 on an already loaded
 page. Its local sanitized document disables scripts, remote resources and frames.
 Images are omitted to avoid tracking; links explicitly return to the browser router.
 Article HTML briefly passes through a bounded app-private cache file, deleted when
