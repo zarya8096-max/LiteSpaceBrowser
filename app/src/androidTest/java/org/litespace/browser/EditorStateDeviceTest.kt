@@ -57,7 +57,16 @@ class EditorStateDeviceTest {
                     assertTrue("Large icons/code must stay out of Binder saved state: ${bundleBytes.get()} bytes", bundleBytes.get() < 200_000)
                 }
                 device.wait(Until.findObject(By.desc(Pattern.compile("Back|بازگشت"))), 30_000)!!.click()
-                scenario.onActivity { assertNull("Leaving the editor must discard its draft", ViewModelProvider(it)[MainViewModel::class.java].editor.value) }
+                // Input injection can return before Compose handles the click,
+                // especially on software-rendered emulators. Await the actual
+                // state transition instead of racing the event queue.
+                val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30)
+                var discarded = false
+                while(!discarded && System.nanoTime() < deadline) {
+                    scenario.onActivity { discarded = ViewModelProvider(it)[MainViewModel::class.java].editor.value == null }
+                    if(!discarded) Thread.sleep(50)
+                }
+                assertTrue("Leaving the editor must discard its draft", discarded)
             }
         } finally { app.unregisterActivityLifecycleCallbacks(callback) }
     }
